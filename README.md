@@ -1,6 +1,8 @@
 # Sagax
 
-**TODO: Add description**
+**NOTE: It’s early, so there isn’t a whole lot here yet. We do not recommend to use it in production.**
+
+An implementation of the Saga pattern for distributed transactions in Elixir.
 
 ## Installation
 
