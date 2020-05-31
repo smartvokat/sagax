@@ -1,3 +1,5 @@
+![sagax](/.github/banner.png?raw=true)
+
 # Sagax
 
 **NOTE: It’s early, so there isn’t a whole lot here yet. We do not recommend to use it in production.**
