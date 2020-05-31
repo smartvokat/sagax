@@ -3,38 +3,75 @@ defmodule Sagax.Test.Builder do
   alias Sagax.Test.Log
 
   import ExUnit.Assertions
+  import Sagax.Test.Assertions
 
   defstruct log: nil, args: %{}, context: nil
 
   def new_builder(opts), do: struct!(Builder, opts)
 
-  def sync_effect(builder, value, opts \\ []) do
-    fn results, args, context ->
-      assert results == Keyword.get(opts, :results, [])
+  def effect(builder, value, opts \\ []) do
+    fn results, args, context, _opts ->
+      if Keyword.has_key?(opts, :results) do
+        assert_results results, Keyword.get(opts, :results, [])
+      end
+
+      if Keyword.get(opts, :delay, true) do
+        Process.sleep(:rand.uniform(250))
+      end
+
       assert args == Map.get(builder, :args, %{})
-      assert context == Map.get(builder, :context, nil)
-      {:ok, Log.sync(builder.log, value)}
+      assert context == Map.get(builder, :context)
+
+      if Keyword.has_key?(opts, :tag) do
+        {:ok, Log.log(builder.log, value), Keyword.get(opts, :tag)}
+      else
+        {:ok, Log.log(builder.log, value)}
+      end
     end
   end
 
-  @spec sync_effect_error(any, any, any) :: (any, any, any -> {:error, any})
-  def sync_effect_error(builder, value, opts \\ []) do
-    fn results, args, context ->
-      assert results == Keyword.get(opts, :results, [])
+  def effect_error(builder, value, opts \\ []) do
+    fn results, args, context, _opts ->
+      if Keyword.has_key?(opts, :results) do
+        assert_results results, Keyword.get(opts, :results, [])
+      end
+
+      if Keyword.get(opts, :delay, true) do
+        Process.sleep(:rand.uniform(250))
+      end
+
       assert args == Map.get(builder, :args, %{})
-      assert context == Map.get(builder, :context, nil)
-      {:error, Log.sync(builder.log, value)}
+      assert context == Map.get(builder, :context)
+
+      {:error, Log.log(builder.log, value)}
     end
   end
 
-  def sync_comp(builder, value, opts \\ []) do
-    fn result, results, args, context ->
-      assert result == value
-      assert results == Keyword.get(opts, :results, [])
+  def compensation(builder, value, opts \\ []) do
+    fn result, results, args, context, _opts ->
+      if match?(%ExUnit.AssertionError{}, result) do
+        raise(result)
+      end
+
+      assert result == value,
+        message: "Expected the result of the effect to compensate to match",
+        left: result,
+        right: value
+
+      if Keyword.has_key?(opts, :results) do
+        assert_results results, Keyword.get(opts, :results, [])
+      end
+
+      if Keyword.get(opts, :delay, true) do
+        Process.sleep(:rand.uniform(250))
+      end
+
       assert args == Map.get(builder, :args, %{})
-      assert context == Map.get(builder, :context, nil)
-      Log.sync(builder.log, "#{value}.comp")
-      :ok
+      assert context == Map.get(builder, :context)
+
+      Log.log(builder.log, "#{value}.comp")
+
+      Keyword.get(opts, :result, :ok)
     end
   end
 end
