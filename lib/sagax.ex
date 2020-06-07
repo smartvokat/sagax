@@ -3,6 +3,7 @@ defmodule Sagax do
 
   alias __MODULE__
   alias Sagax.State
+  alias Sagax.Result
 
   defstruct queue: [], results: [], opts: []
 
@@ -17,7 +18,15 @@ defmodule Sagax do
         )
     }
 
-  # def get(%Sagax{} = saga, query), do: nil
+  def get(%Result{results: results}, {_namespace, _value} = tag) do
+    match =
+      Enum.find(results, fn result ->
+        is_tuple(result) && elem(result, 1) == tag
+      end)
+
+    if is_nil(match), do: match, else: elem(match, 0)
+  end
+
   # def all(%Sagax{} = saga, query), do: []
 
   @doc """
@@ -52,7 +61,7 @@ defmodule Sagax do
     |> Sagax.Executor.execute()
     |> case do
       %State{aborted?: false} = state ->
-        {:ok, Map.values(state.results)}
+        {:ok, %Result{results: Map.values(state.results)}}
 
       %State{aborted?: true, last_result: {error, stacktrace}} ->
         reraise(error, stacktrace)
