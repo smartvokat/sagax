@@ -164,6 +164,11 @@ defmodule Sagax.Executor do
            last_result: exception
        }
 
+  defp handle_execute_result(result, _state) do
+    # TODO: Implement this
+    raise "Invalid result"
+  end
+
   defp handle_compensate_result(result, %{stack: [item | stack], results: results} = state) do
     case result do
       :ok ->
