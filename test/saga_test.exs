@@ -1,40 +1,62 @@
 defmodule SagaxTest do
   use ExUnit.Case
 
-  # describe "run()" do
-  #   test "appends functions correctly" do
-  #     saga = Sagax.new() |> Sagax.run(&IO.inspect/2) |> Sagax.run(&IO.inspect/2)
-  #     assert saga.stages == [{&IO.inspect/2, :noop}, {&IO.inspect/2, :noop}]
-  #   end
-  # end
+  describe "new()" do
+    test "sets :max_concurrency to System.schedulers_online() by default" do
+      saga = Sagax.new()
+      assert Keyword.get(saga.opts, :max_concurrency) == System.schedulers_online()
+    end
 
-  # describe "run_async()" do
-  #   test "works with empty sagas" do
-  #     saga = Sagax.new() |> Sagax.run_async(&IO.inspect/2)
-  #     assert saga.stages == [[{&IO.inspect/2, :noop}]]
-  #   end
+    test "allows to set :max_concurrency" do
+      saga = Sagax.new(max_concurrency: 1000)
+      assert Keyword.get(saga.opts, :max_concurrency) == 1000
+    end
+  end
 
-  #   test "allows combinations of run() and run_async()" do
-  #     saga =
-  #       Sagax.new()
-  #       |> Sagax.run(&IO.inspect/1)
-  #       |> Sagax.run_async(&IO.puts/1)
-  #       |> Sagax.run_async(&IO.puts/1)
-  #       |> Sagax.run_async(Sagax.new())
-  #       |> Sagax.run(&IO.inspect/1)
-  #       |> Sagax.run_async(Sagax.new())
-  #       |> Sagax.run(Sagax.new())
-  #       |> Sagax.run_async(&IO.inspect/2)
-  #       |> Sagax.run_async(&IO.inspect/2)
+  describe "execute()" do
+    test "returns the results as a list" do
+      {:ok, result} =
+        Sagax.new()
+        |> Sagax.run(fn _, _, _, _ -> {:ok, "a"} end)
+        |> Sagax.run(fn _, _, _, _ -> {:ok, "b", :tag} end)
+        |> Sagax.run(fn _, _, _, _ -> {:ok, "c", {:namespace, "tag"}} end)
+        |> Sagax.execute(%{})
 
-  #     assert saga.stages == [
-  #              [{&IO.inspect/2, :noop}, {&IO.inspect/2, :noop}],
-  #              {%Sagax{}, :noop},
-  #              [{%Sagax{}, :noop}],
-  #              {&IO.inspect/1, :noop},
-  #              [{%Sagax{}, :noop}, {&IO.puts/1, :noop}, {&IO.puts/1, :noop}],
-  #              {&IO.inspect/1, :noop}
-  #            ]
-  #   end
-  # end
+      assert result.results == ["a", {"b", :tag}, {"c", {:namespace, "tag"}}]
+    end
+
+    test "handles exceptions" do
+      result =
+        Sagax.new()
+        |> Sagax.run(fn _, _, _, _ -> raise "exception" end)
+        |> Sagax.execute(%{})
+
+      assert result == {:error, %RuntimeError{message: "exception"}}
+    end
+  end
+
+  describe "find()" do
+    test "returns the first result with a matching tag" do
+      saga = %Sagax{results: ["a", {"b", :tag}, {"c", "tag"}, {"d", {"ns", "tag"}}]}
+      assert Sagax.find(saga, :tag) == "b"
+      assert Sagax.find(saga, "tag") == "c"
+      assert Sagax.find(saga, {:_, "tag"}) == "d"
+    end
+
+    test "returns the first result with a matching namespace and tag" do
+      saga = %Sagax{results: ["a", {"b", {"ns", :tag}}, {"c", :tag}]}
+      assert Sagax.find(saga, {"ns", :_}) == "b"
+    end
+  end
+
+  describe "all()" do
+    test "returns all results with a matching tag" do
+      saga = %Sagax{results: ["a", {"b", :tag}, {"c", :tag}, {"d", {"ns", :tag}}]}
+      assert Sagax.all(saga, :tag) == ["b", "c", "d"]
+      assert Sagax.all(saga, {:_, :tag}) == ["d"]
+      assert Sagax.all(saga, {"ns", :tag}) == ["d"]
+      assert Sagax.all(saga, {"ns", :_}) == ["d"]
+      assert Sagax.all(saga, "a") == []
+    end
+  end
 end
