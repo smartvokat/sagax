@@ -10,7 +10,7 @@ defmodule Sagax.Executor do
   def next(%State{aborted?: false} = state), do: execute(state)
   def next(%State{aborted?: true} = state), do: compensate(state)
 
-  defp do_execute(%State{queue: [{%Sagax{} = saga, _comp, _opts} | _tail]} = state) do
+  defp do_execute(%State{queue: [{_id, %Sagax{} = saga, _comp, _opts} | _tail]} = state) do
     saga
     |> State.from_saga(state.args, state.context)
     |> Map.put(:results, state.results)
@@ -55,7 +55,7 @@ defmodule Sagax.Executor do
     }
   end
 
-  defp do_execute(%State{queue: [{effect, _comp, opts} | _tail]} = state) do
+  defp do_execute(%State{queue: [{_id, effect, _comp, opts} | _tail]} = state) do
     effect
     |> safe_apply([state.results, state.args, state.context], opts, state.opts)
     |> handle_execute_result(state)
@@ -68,24 +68,24 @@ defmodule Sagax.Executor do
         fn item -> {elem(item, 0), do_compensate(%{state | stack: [item]})} end,
         state.opts
       )
-      |> Enum.reduce(state, fn {:ok, {effect, _}}, acc ->
-        %{acc | results: Map.delete(acc.results, effect)}
+      |> Enum.reduce(state, fn {:ok, {id, _}}, acc ->
+        %{acc | results: Map.delete(acc.results, id)}
       end)
 
     %{inner_state | stack: tail}
   end
 
-  def do_compensate(%State{stack: [{%Sagax{} = saga, _comp, _opts} | _tail]} = state) do
+  def do_compensate(%State{stack: [{_id, %Sagax{} = saga, _comp, _opts} | _tail]} = state) do
     %{state | stack: saga.queue}
     |> compensate()
     |> handle_compensate_result(state)
   end
 
-  def do_compensate(%State{stack: [{_, :noop, _opts} | _tail]} = state),
+  def do_compensate(%State{stack: [{_id, _, :noop, _opts} | _tail]} = state),
     do: handle_compensate_result(:ok, state)
 
-  def do_compensate(%State{stack: [{effect, comp, opts} | _tail], results: results} = state) do
-    result = Map.get(results, effect)
+  def do_compensate(%State{stack: [{id, _effect, comp, opts} | _tail], results: results} = state) do
+    result = Map.get(results, id)
 
     comp
     |> safe_apply([result, results, state.args, state.context], opts, state.opts)
@@ -164,7 +164,7 @@ defmodule Sagax.Executor do
            last_result: exception
        }
 
-  defp handle_execute_result(result, _state) do
+  defp handle_execute_result(_result, _state) do
     # TODO: Implement this
     raise "Invalid result"
   end

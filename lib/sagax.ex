@@ -5,7 +5,7 @@ defmodule Sagax do
   alias Sagax.State
   alias Sagax.Result
 
-  defstruct queue: [], results: [], opts: []
+  defstruct queue: [], opts: []
 
   @doc """
   Creates a new saga.
@@ -41,16 +41,16 @@ defmodule Sagax do
     do: raise(ArgumentError, "Invalid compensation function")
 
   def run(%Sagax{queue: queue} = saga, effect, compensation, opts),
-    do: %{saga | queue: [{effect, compensation, opts} | queue]}
+    do: %{saga | queue: [{unique_id(), effect, compensation, opts} | queue]}
 
   def run_async(_, _, compensation \\ :noop, opts \\ [])
 
   def run_async(%Sagax{queue: [head | queue]} = saga, effect, compensation, opts)
       when is_list(head),
-      do: %{saga | queue: [[{effect, compensation, opts} | head] | queue]}
+      do: %{saga | queue: [[{unique_id(), effect, compensation, opts} | head] | queue]}
 
   def run_async(%Sagax{queue: queue} = saga, effect, compensation, opts),
-    do: %{saga | queue: [[{effect, compensation, opts}] | queue]}
+    do: %{saga | queue: [[{unique_id(), effect, compensation, opts}] | queue]}
 
   @doc """
   Executes the function defined in the saga.
@@ -70,4 +70,6 @@ defmodule Sagax do
         {:error, result}
     end
   end
+
+  defp unique_id(), do: System.unique_integer([:positive])
 end
