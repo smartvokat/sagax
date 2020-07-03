@@ -38,9 +38,6 @@ defmodule Sagax.Executor do
     end
   end
 
-  defp do_execute(%Sagax{queue: [{_, func} | tail]} = saga),
-    do: execute_lazy(%{saga | queue: tail}, func)
-
   defp do_execute(%Sagax{queue: [{_, %Sagax{} = inner_saga, _, _} | _]} = saga) do
     %{inner_saga | results: saga.results}
     |> Sagax.inherit(saga)
@@ -48,14 +45,20 @@ defmodule Sagax.Executor do
     |> handle_execute_result(saga)
   end
 
-  defp do_execute(%Sagax{queue: [effects | tail]} = saga) when is_list(effects) do
-    # IO.inspect(effects, label: "a")
-    # IO.inspect(saga, label: "a")
+  defp do_execute(%Sagax{queue: [{id, effects} | tail]} = saga) when is_list(effects) do
+    # saga =
+    #   effects
+    #   |> Enum.reduce(saga, fn
+    #     {id, _func}, acc ->
+    #       IO.inspect("Delete #{id}")
+    #       Utils.delete(acc, id)
 
-    # # queue=[[{}, {}], %Sagax{}, {}, [{}, {}]]
-    # # queue=[{}, [{}, {}], %Sagax{}, {}, [{}, {}]]
+    #     _, acc ->
+    #       acc
+    #   end)
+    #   |> optimize()
 
-    # # queue=[:async, :async, %Sagax{}, :async, :async]
+    # IO.inspect(saga)
 
     # #
     # {saga, effects} =
@@ -105,11 +108,14 @@ defmodule Sagax.Executor do
       saga
       | state: inner_saga.state,
         queue: tail,
-        stack: [inner_saga.stack | saga.stack],
+        stack: [{id, inner_saga.stack} | saga.stack],
         results: Map.merge(saga.results, inner_saga.results),
         last_result: inner_saga.last_result || saga.last_result
     }
   end
+
+  defp do_execute(%Sagax{queue: [{_, func} | tail]} = saga),
+    do: execute_lazy(%{saga | queue: tail}, func)
 
   defp do_execute(%Sagax{queue: [{_, effect, _, opts} | _]} = saga) do
     effect
@@ -117,7 +123,7 @@ defmodule Sagax.Executor do
     |> handle_execute_result(saga)
   end
 
-  def do_compensate(%Sagax{stack: [items | tail]} = saga) when is_list(items) do
+  def do_compensate(%Sagax{stack: [{_, items} | tail]} = saga) when is_list(items) do
     inner_saga =
       items
       |> Task.async_stream(
@@ -275,11 +281,11 @@ defmodule Sagax.Executor do
   defp do_optimize(%Sagax{queue: queue} = saga),
     do: %{saga | queue: Enum.map(queue, &do_optimize/1)}
 
-  defp do_optimize(stage) when is_list(stage) and length(stage) === 1,
-    do: do_optimize(List.first(stage))
+  defp do_optimize({_, items}) when is_list(items) and length(items) === 1,
+    do: do_optimize(List.first(items))
 
-  defp do_optimize(stage) when is_list(stage),
-    do: Enum.map(stage, &do_optimize/1)
+  defp do_optimize({_, items} = stage) when is_list(items),
+    do: put_elem(stage, 1, Enum.map(items, &do_optimize/1))
 
   defp do_optimize({_, %Sagax{} = saga, _, _} = stage),
     do: put_elem(stage, 1, do_optimize(saga))

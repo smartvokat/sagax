@@ -135,15 +135,17 @@ defmodule Sagax do
   defp matches?(_, _), do: false
 
   defp do_add_async(%Sagax{queue: queue} = saga, op) do
-    if is_list(List.last(queue)) do
+    prev_stage = List.last(queue)
+
+    if is_tuple(prev_stage) && is_list(elem(prev_stage, 1)) do
       queue =
-        List.update_at(queue, length(queue) - 1, fn item ->
-          item ++ [op]
+        List.update_at(queue, length(queue) - 1, fn {_, items} = item ->
+          put_elem(item, 1, items ++ [op])
         end)
 
       %{saga | queue: queue}
     else
-      %{saga | queue: queue ++ [[op]]}
+      %{saga | queue: queue ++ [{unique_id(), [op]}]}
     end
   end
 end

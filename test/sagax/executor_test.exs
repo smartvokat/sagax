@@ -38,7 +38,7 @@ defmodule Sagax.ExecutorTest do
       saga = Sagax.new() |> Sagax.add_async(nested_saga2) |> Executor.optimize()
 
       assert match?(
-               [{_, %Sagax{queue: [[_, {_, %Sagax{queue: [{_, _, _, _}]}, _, _}]]}, _, _}],
+               [{_, %Sagax{queue: [{_, [_, {_, %Sagax{queue: [{_, _, _, _}]}, _, _}]}]}, _, _}],
                saga.queue
              )
     end
