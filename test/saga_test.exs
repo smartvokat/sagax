@@ -14,24 +14,24 @@ defmodule SagaxTest do
   end
 
   describe "execute()" do
-    test "returns the results as a list" do
-      {:ok, result} =
+    test "returns the saga" do
+      {:ok, saga} =
         Sagax.new()
-        |> Sagax.run(fn _, _, _, _ -> {:ok, "a"} end)
-        |> Sagax.run(fn _, _, _, _ -> {:ok, "b", :tag} end)
-        |> Sagax.run(fn _, _, _, _ -> {:ok, "c", {:namespace, "tag"}} end)
+        |> Sagax.add(fn _, _, _, _ -> {:ok, "a"} end)
+        |> Sagax.add(fn _, _, _, _ -> {:ok, "b", :tag} end)
+        |> Sagax.add(fn _, _, _, _ -> {:ok, "c", {:namespace, "tag"}} end)
         |> Sagax.execute(%{})
 
-      assert result.results == ["a", {"b", :tag}, {"c", {:namespace, "tag"}}]
+      assert %Sagax{} = saga
+      assert Sagax.all(saga) == ["a", {"b", :tag}, {"c", {:namespace, "tag"}}]
     end
 
-    test "handles exceptions" do
-      result =
+    test "does not shallow exceptions by default" do
+      assert_raise(RuntimeError, "exception", fn ->
         Sagax.new()
-        |> Sagax.run(fn _, _, _, _ -> raise "exception" end)
+        |> Sagax.add(fn _, _, _, _ -> raise "exception" end)
         |> Sagax.execute(%{})
-
-      assert result == {:error, %RuntimeError{message: "exception"}}
+      end)
     end
   end
 

@@ -1,178 +1,171 @@
 defmodule Sagax.Executor do
-  alias Sagax.State
+  def execute(%Sagax{queue: []} = saga), do: saga
+  def execute(%Sagax{} = saga), do: do_execute(saga) |> next()
 
-  def execute(%State{queue: []} = state), do: state
-  def execute(%State{} = state), do: do_execute(state) |> next()
+  def compensate(%Sagax{stack: []} = saga), do: saga
+  def compensate(%Sagax{} = saga), do: do_compensate(saga) |> next()
 
-  def compensate(%State{stack: []} = state), do: state
-  def compensate(%State{} = state), do: do_compensate(state) |> next()
+  def next(%Sagax{state: :ok} = saga), do: execute(saga)
+  def next(%Sagax{state: :error} = saga), do: compensate(saga)
 
-  def next(%State{aborted?: false} = state), do: execute(state)
-  def next(%State{aborted?: true} = state), do: compensate(state)
-
-  defp do_execute(%State{queue: [{_id, %Sagax{} = saga, _comp, _opts} | _tail]} = state) do
-    saga
-    |> State.from_saga(state.args, state.context)
-    |> Map.put(:results, state.results)
+  defp do_execute(%Sagax{queue: [{_, %Sagax{} = inner_saga, _, _} | _]} = saga) do
+    %{inner_saga | results: saga.results}
+    |> Sagax.inherit(saga)
     |> execute()
-    |> handle_execute_result(state)
+    |> handle_execute_result(saga)
   end
 
-  defp do_execute(%State{queue: [effects | tail]} = state) when is_list(effects) do
-    inner_state =
+  defp do_execute(%Sagax{queue: [effects | tail]} = saga) when is_list(effects) do
+    inner_saga =
       effects
       |> Task.async_stream(
-        fn effect -> do_execute(%{state | queue: [effect]}) end,
-        state.opts
+        fn effect -> do_execute(%{saga | queue: [effect]}) end,
+        saga.opts
       )
-      |> Enum.reduce_while(%{state | results: %{}}, fn
-        {:ok, %{aborted?: true} = result_state}, acc ->
+      |> Enum.reduce_while(%{saga | results: %{}}, fn
+        {:ok, %{state: :error} = result_saga}, acc ->
           {:halt,
            %{
              acc
-             | aborted?: true,
-               stack: acc.stack ++ result_state.stack,
-               results: Map.merge(acc.results, result_state.results),
-               last_result: result_state.last_result
+             | state: :error,
+               stack: acc.stack ++ result_saga.stack,
+               results: Map.merge(acc.results, result_saga.results),
+               last_result: result_saga.last_result
            }}
 
-        {:ok, result_state}, acc ->
+        {:ok, result_saga}, acc ->
           {:cont,
            %{
              acc
-             | stack: acc.stack ++ result_state.stack,
-               results: Map.merge(acc.results, result_state.results)
+             | stack: acc.stack ++ result_saga.stack,
+               results: Map.merge(acc.results, result_saga.results)
            }}
       end)
 
     %{
-      state
-      | aborted?: inner_state.aborted?,
+      saga
+      | state: inner_saga.state,
         queue: tail,
-        stack: [inner_state.stack | state.stack],
-        results: Map.merge(state.results, inner_state.results),
-        last_result: inner_state.last_result || state.last_result
+        stack: [inner_saga.stack | saga.stack],
+        results: Map.merge(saga.results, inner_saga.results),
+        last_result: inner_saga.last_result || saga.last_result
     }
   end
 
-  defp do_execute(%State{queue: [{_id, effect, _comp, opts} | _tail]} = state) do
+  defp do_execute(%Sagax{queue: [{_, effect, _, opts} | _]} = saga) do
     effect
-    |> safe_apply([state.results, state.args, state.context], opts, state.opts)
-    |> handle_execute_result(state)
+    |> safe_apply([saga.results, saga.args, saga.context], opts, saga.opts)
+    |> handle_execute_result(saga)
   end
 
-  def do_compensate(%State{stack: [items | tail]} = state) when is_list(items) do
-    inner_state =
+  def do_compensate(%Sagax{stack: [items | tail]} = saga) when is_list(items) do
+    inner_saga =
       items
       |> Task.async_stream(
-        fn item -> {elem(item, 0), do_compensate(%{state | stack: [item]})} end,
-        state.opts
+        fn item -> {elem(item, 0), do_compensate(%{saga | stack: [item]})} end,
+        saga.opts
       )
-      |> Enum.reduce(state, fn {:ok, {id, _}}, acc ->
+      |> Enum.reduce(saga, fn {:ok, {id, _}}, acc ->
         %{acc | results: Map.delete(acc.results, id)}
       end)
 
-    %{inner_state | stack: tail}
+    %{inner_saga | stack: tail}
   end
 
-  def do_compensate(%State{stack: [{_id, %Sagax{} = saga, _comp, _opts} | _tail]} = state) do
-    %{state | stack: saga.queue}
+  def do_compensate(%Sagax{stack: [{_, %Sagax{} = inner_saga, _, _} | _]} = saga) do
+    %{saga | stack: inner_saga.stack}
     |> compensate()
-    |> handle_compensate_result(state)
+    |> handle_compensate_result(saga)
   end
 
-  def do_compensate(%State{stack: [{_id, _, :noop, _opts} | _tail]} = state),
-    do: handle_compensate_result(:ok, state)
+  def do_compensate(%Sagax{stack: [{_, _, :noop, _} | _]} = saga),
+    do: handle_compensate_result(:ok, saga)
 
-  def do_compensate(%State{stack: [{id, _effect, comp, opts} | _tail], results: results} = state) do
+  def do_compensate(%Sagax{stack: [{id, _, comp, opts} | _], results: results} = saga) do
     result = Map.get(results, id)
 
     comp
-    |> safe_apply([result, results, state.args, state.context], opts, state.opts)
-    |> handle_compensate_result(state)
+    |> safe_apply([result, results, saga.args, saga.context], opts, saga.opts)
+    |> handle_compensate_result(saga)
   end
 
-  defp handle_execute_result(:ok, %{queue: [item | queue]} = state),
+  defp handle_execute_result(:ok, %{queue: [item | queue]} = saga),
     do: %{
-      state
+      saga
       | queue: queue,
-        stack: [item | state.stack],
-        results: Map.put(state.results, elem(item, 0), nil)
+        stack: [item | saga.stack],
+        results: Map.put(saga.results, elem(item, 0), nil)
     }
 
-  defp handle_execute_result({:ok, value}, %{queue: [item | queue]} = state),
+  defp handle_execute_result({:ok, value}, %{queue: [item | queue]} = saga),
     do: %{
-      state
+      saga
       | queue: queue,
-        stack: [item | state.stack],
-        results: Map.put(state.results, elem(item, 0), value)
+        stack: [item | saga.stack],
+        results: Map.put(saga.results, elem(item, 0), value)
     }
 
-  defp handle_execute_result({:ok, value, tag}, %{queue: [item | queue]} = state)
+  defp handle_execute_result({:ok, value, tag}, %{queue: [item | queue]} = saga)
        when is_binary(tag) or is_atom(tag) or is_tuple(tag),
        do: %{
-         state
+         saga
          | queue: queue,
-           stack: [item | state.stack],
-           results: Map.put(state.results, elem(item, 0), {value, tag})
+           stack: [item | saga.stack],
+           results: Map.put(saga.results, elem(item, 0), {value, tag})
        }
 
   defp handle_execute_result(
-         %State{aborted?: false, last_result: last_result, results: results},
-         %{queue: [item | queue]} = state
+         %Sagax{state: :ok, last_result: last_result, results: results} = inner_saga,
+         %{queue: [item | queue]} = saga
        ),
        do: %{
-         state
+         saga
          | queue: queue,
-           stack: [item | state.stack],
-           results: Map.merge(state.results, results),
+           stack: [put_elem(item, 1, inner_saga) | saga.stack],
+           results: Map.merge(saga.results, results),
            last_result: last_result
        }
 
   defp handle_execute_result(
-         %State{aborted?: true, last_result: last_result, results: results},
-         %{queue: [item | _]} = state
+         %Sagax{state: :error, last_result: last_result, results: results},
+         %{queue: [item | _]} = saga
        ),
        do: %{
-         state
-         | aborted?: true,
-           stack: [item | state.stack],
-           results: Map.merge(state.results, results),
+         saga
+         | stack: [item | saga.stack],
+           results: Map.merge(saga.results, results),
            last_result: last_result
        }
 
-  defp handle_execute_result({:error, error_or_result}, %{queue: [item | queue]} = state),
+  defp handle_execute_result({:error, error_or_result}, %{queue: [item | queue]} = saga),
     do: %{
-      state
-      | aborted?: true,
+      saga
+      | state: :error,
         queue: queue,
-        stack: [item | state.stack],
-        results: Map.put(state.results, elem(item, 0), error_or_result),
+        stack: [item | saga.stack],
+        results: Map.put(saga.results, elem(item, 0), error_or_result),
         last_result: error_or_result
     }
 
-  defp handle_execute_result(
-         {:raise, {_exception, _stacktrace} = exception},
-         %{queue: [item | queue]} = state
-       ),
-       do: %{
-         state
-         | aborted?: true,
-           queue: queue,
-           stack: [item | state.stack],
-           results: Map.put(state.results, elem(item, 0), {exception, nil}),
-           last_result: exception
-       }
+  defp handle_execute_result({:raise, {_, _} = exception}, %{queue: [item | queue]} = saga),
+    do: %{
+      saga
+      | state: :error,
+        queue: queue,
+        stack: [item | saga.stack],
+        results: Map.put(saga.results, elem(item, 0), {exception, nil}),
+        last_result: exception
+    }
 
-  defp handle_execute_result(_result, _state) do
+  defp handle_execute_result(_result, _saga) do
     # TODO: Implement this
     raise "Invalid result"
   end
 
-  defp handle_compensate_result(result, %{stack: [item | stack], results: results} = state) do
+  defp handle_compensate_result(result, %{stack: [item | stack], results: results} = saga) do
     case result do
       :ok ->
-        %{state | stack: stack, results: Map.delete(results, elem(item, 0))}
+        %{saga | stack: stack, results: Map.delete(results, elem(item, 0))}
 
       {:error, _error_or_result} ->
         # TODO: Implement an on_error handler
@@ -184,15 +177,15 @@ defmodule Sagax.Executor do
 
       # {:exit, :timeout} ->
       #   compensate(%{
-      #     state
+      #     saga
       #     | aborted?: true,
-      #       stack: [item | state.stack],
-      #       results: [{nil, nil} | state.results]
+      #       stack: [item | saga.stack],
+      #       results: [{nil, nil} | saga.results]
       #       last_result: nil
       #   })
 
-      %State{results: results} ->
-        %{state | stack: stack, results: results}
+      %Sagax{results: results} ->
+        %{saga | stack: stack, results: results}
     end
   end
 

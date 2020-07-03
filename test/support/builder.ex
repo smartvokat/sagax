@@ -5,7 +5,7 @@ defmodule Sagax.Test.Builder do
   import ExUnit.Assertions
   import Sagax.Test.Assertions
 
-  defstruct log: nil, args: %{}, context: nil
+  defstruct log: nil, args: nil, context: nil
 
   def new_builder(opts), do: struct!(Builder, opts)
 
@@ -19,7 +19,7 @@ defmodule Sagax.Test.Builder do
         Process.sleep(:rand.uniform(250))
       end
 
-      assert args == Map.get(builder, :args, %{})
+      assert args == Map.get(builder, :args)
       assert context == Map.get(builder, :context)
 
       if Keyword.has_key?(opts, :tag) do
@@ -40,7 +40,7 @@ defmodule Sagax.Test.Builder do
         Process.sleep(:rand.uniform(250))
       end
 
-      assert args == Map.get(builder, :args, %{})
+      assert args == Map.get(builder, :args)
       assert context == Map.get(builder, :context)
 
       {:error, Log.log(builder.log, value)}
@@ -66,7 +66,7 @@ defmodule Sagax.Test.Builder do
         Process.sleep(:rand.uniform(250))
       end
 
-      assert args == Map.get(builder, :args, %{})
+      assert args == Map.get(builder, :args)
       assert context == Map.get(builder, :context)
 
       Log.log(builder.log, "#{value}.comp")

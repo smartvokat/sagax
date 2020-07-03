@@ -1,13 +1,22 @@
 defmodule Sagax do
-  @moduledoc false
+  @moduledoc """
+  A saga.
+  """
 
-  alias __MODULE__
   alias Sagax.Executor
-  alias Sagax.State
+
+  defstruct args: nil,
+            context: nil,
+            executed?: false,
+            inherits?: true,
+            last_result: nil,
+            opts: [],
+            queue: [],
+            results: %{},
+            stack: [],
+            state: :ok
 
   defguard is_tag(tag) when is_atom(tag) or is_binary(tag)
-
-  defstruct executed?: false, results: [], queue: [], opts: []
 
   @doc """
   Creates a new saga.
@@ -15,6 +24,66 @@ defmodule Sagax do
   def new(opts \\ []) do
     opts = Keyword.merge([max_concurrency: System.schedulers_online()], opts)
     %Sagax{opts: opts}
+  end
+
+  def inherit(%Sagax{} = base, %Sagax{inherits?: true} = saga),
+    do: %{base | args: saga.args, context: saga.context, opts: saga.opts}
+
+  def inherit(%Sagax{} = base, _), do: base
+
+  @doc """
+  Adds a function which receives the saga for lazy manipulation.
+  """
+  def add_lazy(saga, func) when is_function(func, 4),
+    do: %{saga | queue: saga.queue ++ [{unique_id(), func}]}
+
+  def add_lazy_async(%Sagax{} = saga, func, _, _) when is_function(func, 4),
+    do: do_add_async(saga, {unique_id(), func})
+
+  @doc """
+  Adds an effect and compensation to the saga.
+  """
+  def add(saga, effect, compensation \\ :noop, opts \\ [])
+
+  def add(_, effect, _, _) when not is_function(effect, 4) and not is_struct(effect),
+    do:
+      raise(
+        ArgumentError,
+        "Invalid effect function. Either a function with arity 4 " <>
+          "or another %Sagax{} struct is allowed."
+      )
+
+  def add(_, _, compensation, _) when not is_function(compensation, 5) and compensation !== :noop,
+    do:
+      raise(
+        ArgumentError,
+        "Invalid compensation function. Either a function with arity 5 or :noop is allowed."
+      )
+
+  def add(%Sagax{queue: queue} = saga, effect, compensation, opts),
+    do: %{saga | queue: queue ++ [{unique_id(), effect, compensation, opts}]}
+
+  def add_async(_, _, compensation \\ :noop, opts \\ [])
+
+  def add_async(%Sagax{} = saga, effect, compensation, opts),
+    do: do_add_async(saga, {unique_id(), effect, compensation, opts})
+
+  @doc """
+  Executes the function defined in the saga.
+  """
+  def execute(%Sagax{} = saga, args, context \\ nil) do
+    %{saga | args: args, context: context}
+    |> Executor.execute()
+    |> case do
+      %Sagax{state: :ok} = saga ->
+        {:ok, %{saga | executed?: true, results: all(saga)}}
+
+      %Sagax{state: :error, last_result: {error, stacktrace}} ->
+        reraise(error, stacktrace)
+
+      %Sagax{state: :error, last_result: result} = saga ->
+        {:error, result, saga}
+    end
   end
 
   def find(%Sagax{results: results}, query)
@@ -25,54 +94,14 @@ defmodule Sagax do
 
   def find(_, _), do: nil
 
+  def all(%Sagax{results: results, executed?: true}), do: results
+  def all(%Sagax{results: results, executed?: false}), do: Map.values(results)
+
   def all(%Sagax{results: results}, query)
       when is_tuple(query) or is_binary(query) or is_atom(query) do
     results
     |> Enum.filter(&matches?(&1, query))
     |> Enum.map(&elem(&1, 0))
-  end
-
-  @doc """
-  Adds a function to the saga.
-  """
-  def run(saga, effect, compensation \\ :noop, opts \\ [])
-
-  def run(_, effect, _, _) when not is_function(effect, 4) and not is_struct(effect),
-    do: raise(ArgumentError, "Invalid effect function")
-
-  def run(_, _, compensation, _) when not is_function(compensation, 5) and compensation !== :noop,
-    do: raise(ArgumentError, "Invalid compensation function")
-
-  def run(%Sagax{queue: queue} = saga, effect, compensation, opts),
-    do: %{saga | queue: [{unique_id(), effect, compensation, opts} | queue]}
-
-  def run_async(_, _, compensation \\ :noop, opts \\ [])
-
-  def run_async(%Sagax{queue: [head | queue]} = saga, effect, compensation, opts)
-      when is_list(head),
-      do: %{saga | queue: [[{unique_id(), effect, compensation, opts} | head] | queue]}
-
-  def run_async(%Sagax{queue: queue} = saga, effect, compensation, opts),
-    do: %{saga | queue: [[{unique_id(), effect, compensation, opts}] | queue]}
-
-  @doc """
-  Executes the function defined in the saga.
-  """
-  def execute(%Sagax{} = saga, args, context \\ nil) do
-    saga
-    |> State.from_saga(args, context)
-    |> Executor.execute()
-    |> case do
-      %State{aborted?: false} = state ->
-        {:ok, %{saga | executed?: true, results: Map.values(state.results)}}
-
-      %State{aborted?: true, last_result: {error, _stacktrace}} ->
-        # reraise(error, stacktrace)
-        {:error, error}
-
-      %State{aborted?: true, last_result: result} ->
-        {:error, result}
-    end
   end
 
   defp unique_id(), do: System.unique_integer([:positive])
@@ -87,4 +116,17 @@ defmodule Sagax do
   defp matches?({_, {_, tag_left}}, tag_right) when is_tag(tag_right), do: tag_left == tag_right
   defp matches?({_, tag_left}, tag_right) when is_tag(tag_right), do: tag_left == tag_right
   defp matches?(_, _), do: false
+
+  defp do_add_async(%Sagax{queue: queue} = saga, op) do
+    if is_list(List.last(queue)) do
+      queue =
+        List.update_at(queue, length(queue) - 1, fn item ->
+          item ++ [op]
+        end)
+
+      %{saga | queue: queue}
+    else
+      %{saga | queue: queue ++ [[op]]}
+    end
+  end
 end
