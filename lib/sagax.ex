@@ -37,7 +37,7 @@ defmodule Sagax do
   def add_lazy(saga, func) when is_function(func, 4),
     do: %{saga | queue: saga.queue ++ [{unique_id(), func}]}
 
-  def add_lazy_async(%Sagax{} = saga, func, _, _) when is_function(func, 4),
+  def add_lazy_async(%Sagax{} = saga, func) when is_function(func, 4),
     do: do_add_async(saga, {unique_id(), func})
 
   @doc """
