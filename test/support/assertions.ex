@@ -3,14 +3,14 @@ defmodule Sagax.Test.Assertions do
 
   import ExUnit.Assertions
 
-  defmacro assert_state(state, pattern) do
+  defmacro assert_saga(saga, pattern) do
     quote do
-      if match?({%ExUnit.AssertionError{}, _}, unquote(state).last_result) do
-        {error, stacktrace} = unquote(state).last_result
+      if match?({%ExUnit.AssertionError{}, _}, unquote(saga).last_result) do
+        {error, stacktrace} = unquote(saga).last_result
         reraise error, stacktrace
       end
 
-      assert unquote(pattern) = unquote(state)
+      assert unquote(pattern) = unquote(saga)
     end
   end
 
@@ -32,9 +32,9 @@ defmodule Sagax.Test.Assertions do
     end
   end
 
-  defmacro assert_results(left, results) do
-    quote bind_quoted: [left: left, results: results] do
-      left = if match?(%Sagax.State{}, left), do: Map.values(left.results), else: Map.values(left)
+  defmacro assert_saga_results(saga, results) do
+    quote bind_quoted: [saga: saga, results: results] do
+      left = if match?(%Sagax{}, saga), do: Sagax.all(saga), else: Map.values(saga)
 
       assert length(left) == length(results),
         message: "Expected #{length(results)} results but got #{length(left)}",
@@ -50,6 +50,7 @@ defmodule Sagax.Test.Assertions do
     end
   end
 
+  @spec compare_log(any, maybe_improper_list, any, any, any, any) :: :ok | true
   def compare_log([], [], _, _, _, _), do: :ok
 
   def compare_log(left, [], li, _, lp, _) when length(left) > 0 do

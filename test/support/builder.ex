@@ -12,7 +12,7 @@ defmodule Sagax.Test.Builder do
   def effect(builder, value, opts \\ []) do
     fn results, args, context, _opts ->
       if Keyword.has_key?(opts, :results) do
-        assert_results results, Keyword.get(opts, :results, [])
+        assert_saga_results results, Keyword.get(opts, :results, [])
       end
 
       if Keyword.get(opts, :delay, true) do
@@ -33,7 +33,7 @@ defmodule Sagax.Test.Builder do
   def effect_error(builder, value, opts \\ []) do
     fn results, args, context, _opts ->
       if Keyword.has_key?(opts, :results) do
-        assert_results results, Keyword.get(opts, :results, [])
+        assert_saga_results results, Keyword.get(opts, :results, [])
       end
 
       if Keyword.get(opts, :delay, true) do
@@ -59,7 +59,7 @@ defmodule Sagax.Test.Builder do
         right: value
 
       if Keyword.has_key?(opts, :results) do
-        assert_results results, Keyword.get(opts, :results, [])
+        assert_saga_results results, Keyword.get(opts, :results, [])
       end
 
       if Keyword.get(opts, :delay, true) do
