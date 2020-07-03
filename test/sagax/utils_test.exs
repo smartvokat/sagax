@@ -36,7 +36,7 @@ defmodule Sagax.UtilsTest do
         |> Sagax.add_async(effect(b, "c"))
         |> Sagax.add(effect(b, "d"))
 
-      path = [Access.at(1), Access.at(1), Access.elem(0)]
+      path = [Access.at(1), Access.elem(1), Access.at(1), Access.elem(0)]
       saga = Utils.delete(saga, get_in(saga.queue, path))
 
       Executor.execute(saga)

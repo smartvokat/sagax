@@ -35,7 +35,10 @@ defmodule Sagax.ExecutorTest do
         |> Sagax.add_async(effect(b, "b"))
         |> Sagax.add_async(nested_saga1)
 
-      saga = Sagax.new() |> Sagax.add_async(nested_saga2) |> Executor.optimize()
+      saga =
+        Sagax.new()
+        |> Sagax.add_async(nested_saga2)
+        |> Executor.optimize()
 
       assert match?(
                [{_, %Sagax{queue: [{_, [_, {_, %Sagax{queue: [{_, _, _, _}]}, _, _}]}]}, _, _}],
@@ -81,7 +84,6 @@ defmodule Sagax.ExecutorTest do
       assert_log log, ["a", "b", "c"]
     end
 
-    @tag :skip
     test "executes simple lazy functions", %{log: log} do
       b = new_builder(log: log, args: %{arg: "arg"}, context: %{context: "context"})
 
@@ -109,14 +111,13 @@ defmodule Sagax.ExecutorTest do
       assert_log log, ["a", "lazy", "b"]
     end
 
-    @tag :skip
     test "executes async lazy functions", %{builder: b, log: log} do
       saga =
         Sagax.new()
-        # |> Sagax.add(effect(b, "a"))
-        # |> Sagax.add_lazy_async(fn saga, _, _, _ -> Sagax.add_async(saga, effect(b, "b")) end)
-        # |> Sagax.add_async(effect(b, "c"))
-        # |> Sagax.add(effect(b, "d"))
+        |> Sagax.add(effect(b, "a"))
+        |> Sagax.add_lazy_async(fn saga, _, _, _ -> Sagax.add_async(saga, effect(b, "b")) end)
+        |> Sagax.add_async(effect(b, "c"))
+        |> Sagax.add(effect(b, "d"))
         |> Sagax.add_async(effect(b, "e"))
         |> Sagax.add_lazy_async(fn saga, _, _, _ -> Sagax.add_async(saga, effect(b, "f")) end)
         |> Sagax.add_lazy_async(fn saga, _, _, _ -> Sagax.add_async(saga, effect(b, "g")) end)
@@ -124,11 +125,10 @@ defmodule Sagax.ExecutorTest do
         |> Executor.execute()
 
       assert_saga saga, %{state: :ok}
-      assert_saga_results saga, ["a", "b", "c", "d", "e", "f", "g"]
-      assert_log log, ["a", "lazy", "b"]
+      assert_saga_results saga, ["a", "c", "d", "e", "g", "b", "f"]
+      assert_log log, ["a", "c", "d", {"g", "e", "f", "b"}]
     end
 
-    @tag :skip
     test "fails when lazy functions do not return the saga" do
       assert_raise RuntimeError, ~r/unexpected result/i, fn ->
         Sagax.new()
