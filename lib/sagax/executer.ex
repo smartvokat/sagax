@@ -22,6 +22,25 @@ defmodule Sagax.Executor do
   def next(%Sagax{state: :ok} = saga), do: execute(saga)
   def next(%Sagax{state: :error} = saga), do: compensate(saga)
 
+  defp execute_lazy(saga, lazy_func) do
+    lazy_func
+    |> safe_apply([saga, saga.args, saga.context], saga.opts, saga.opts)
+    |> case do
+      %Sagax{} = result ->
+        result
+
+      {:raise, {exception, stacktrace}} ->
+        # TODO: Implement an on_error handler
+        reraise(exception, stacktrace)
+
+      _ ->
+        raise RuntimeError, "Unexpected result from function, expected a %Sagax{} struct."
+    end
+  end
+
+  defp do_execute(%Sagax{queue: [{_, func} | tail]} = saga),
+    do: execute_lazy(%{saga | queue: tail}, func)
+
   defp do_execute(%Sagax{queue: [{_, %Sagax{} = inner_saga, _, _} | _]} = saga) do
     %{inner_saga | results: saga.results}
     |> Sagax.inherit(saga)
@@ -30,6 +49,32 @@ defmodule Sagax.Executor do
   end
 
   defp do_execute(%Sagax{queue: [effects | tail]} = saga) when is_list(effects) do
+    # IO.inspect(effects, label: "a")
+    # IO.inspect(saga, label: "a")
+
+    # # queue=[[{}, {}], %Sagax{}, {}, [{}, {}]]
+    # # queue=[{}, [{}, {}], %Sagax{}, {}, [{}, {}]]
+
+    # # queue=[:async, :async, %Sagax{}, :async, :async]
+
+    # #
+    # {saga, effects} =
+    #   effects
+    #   |> Enum.reduce({saga, effects}, fn
+    #     {id, func}, {saga, effects} ->
+    #       IO.inspect("ID #{id} is lazy")
+    #       IO.inspect(effects, label: "lazy")
+    #       effects = Enum.reject(effects, &(elem(&1, 0) === id))
+    #       IO.inspect(effects, label: "lazy")
+    #       {execute_lazy(%{saga | queue: effects ++ tail}, func), effects}
+
+    #     _, {saga, effects} ->
+    #       {saga, effects}
+    #   end)
+
+    # IO.inspect(effects, label: "b")
+    # IO.inspect(saga, label: "b")
+
     inner_saga =
       effects
       |> Task.async_stream(

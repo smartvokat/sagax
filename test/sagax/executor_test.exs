@@ -81,6 +81,63 @@ defmodule Sagax.ExecutorTest do
       assert_log log, ["a", "b", "c"]
     end
 
+    @tag :skip
+    test "executes simple lazy functions", %{log: log} do
+      b = new_builder(log: log, args: %{arg: "arg"}, context: %{context: "context"})
+
+      saga =
+        Sagax.new(opt: "opt")
+        |> Map.put(:args, %{arg: "arg"})
+        |> Map.put(:context, %{context: "context"})
+        |> Sagax.add(effect(b, "a"))
+        |> Sagax.add_lazy(fn saga, args, context, opts ->
+          assert %Sagax{} = saga
+          assert Sagax.all(saga) == ["a"]
+          assert %{arg: "arg"} = args
+          assert %{context: "context"} = context
+          assert Keyword.get(opts, :opt) == "opt"
+
+          Log.log(log, "lazy")
+
+          Sagax.add(saga, effect(b, "b", results: ["a"]))
+        end)
+        |> Executor.optimize()
+        |> Executor.execute()
+
+      assert_saga saga, %{state: :ok}
+      assert_saga_results saga, ["a", "b"]
+      assert_log log, ["a", "lazy", "b"]
+    end
+
+    @tag :skip
+    test "executes async lazy functions", %{builder: b, log: log} do
+      saga =
+        Sagax.new()
+        # |> Sagax.add(effect(b, "a"))
+        # |> Sagax.add_lazy_async(fn saga, _, _, _ -> Sagax.add_async(saga, effect(b, "b")) end)
+        # |> Sagax.add_async(effect(b, "c"))
+        # |> Sagax.add(effect(b, "d"))
+        |> Sagax.add_async(effect(b, "e"))
+        |> Sagax.add_lazy_async(fn saga, _, _, _ -> Sagax.add_async(saga, effect(b, "f")) end)
+        |> Sagax.add_lazy_async(fn saga, _, _, _ -> Sagax.add_async(saga, effect(b, "g")) end)
+        |> Executor.optimize()
+        |> Executor.execute()
+
+      assert_saga saga, %{state: :ok}
+      assert_saga_results saga, ["a", "b", "c", "d", "e", "f", "g"]
+      assert_log log, ["a", "lazy", "b"]
+    end
+
+    @tag :skip
+    test "fails when lazy functions do not return the saga" do
+      assert_raise RuntimeError, ~r/unexpected result/i, fn ->
+        Sagax.new()
+        |> Sagax.add_lazy(fn _, _, _, _ -> :ok end)
+        |> Executor.optimize()
+        |> Executor.execute()
+      end
+    end
+
     test "executes a nested saga", %{builder: b, log: log} do
       nested_saga =
         Sagax.new()
