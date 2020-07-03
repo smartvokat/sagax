@@ -65,6 +65,22 @@ defmodule Sagax do
 
   def add_async(_, _, compensation \\ :noop, opts \\ [])
 
+  def add_async(_, effect, _, _) when not is_function(effect, 4) and not is_struct(effect),
+    do:
+      raise(
+        ArgumentError,
+        "Invalid effect function. Either a function with arity 4 " <>
+          "or another %Sagax{} struct is allowed."
+      )
+
+  def add_async(_, _, compensation, _)
+      when not is_function(compensation, 5) and compensation !== :noop,
+      do:
+        raise(
+          ArgumentError,
+          "Invalid compensation function. Either a function with arity 5 or :noop is allowed."
+        )
+
   def add_async(%Sagax{} = saga, effect, compensation, opts),
     do: do_add_async(saga, {unique_id(), effect, compensation, opts})
 
