@@ -1,5 +1,4 @@
 defmodule Sagax.ExecutorTest do
-  alias Sagax
   alias Sagax.Executor, as: Executor
   alias Sagax.Test.Log
 
