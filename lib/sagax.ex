@@ -73,6 +73,7 @@ defmodule Sagax do
   """
   def execute(%Sagax{} = saga, args, context \\ nil) do
     %{saga | args: args, context: context}
+    |> Executor.optimize()
     |> Executor.execute()
     |> case do
       %Sagax{state: :ok} = saga ->

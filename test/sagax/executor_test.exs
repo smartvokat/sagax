@@ -14,6 +14,37 @@ defmodule Sagax.ExecutorTest do
     %{log: log, builder: builder}
   end
 
+  describe "optimize()" do
+    test "optimizes unnecessary async effects", %{builder: b} do
+      saga = Sagax.new() |> Sagax.add_async(effect(b, "a")) |> Executor.optimize()
+      assert match?([{_, f, _, _}] when is_function(f), saga.queue)
+    end
+
+    test "optimizes nested sagas", %{builder: b} do
+      nested_saga = Sagax.new() |> Sagax.add_async(effect(b, "a"))
+      saga = Sagax.new() |> Sagax.add_async(nested_saga) |> Executor.optimize()
+      assert match?([{_, %Sagax{queue: [{_, _, _, _}]}, _, _}], saga.queue)
+    end
+
+    test "optimizes nested unnecessary async effects", %{builder: b} do
+      nested_saga1 =
+        Sagax.new()
+        |> Sagax.add_async(effect(b, "a"))
+
+      nested_saga2 =
+        Sagax.new()
+        |> Sagax.add_async(effect(b, "b"))
+        |> Sagax.add_async(nested_saga1)
+
+      saga = Sagax.new() |> Sagax.add_async(nested_saga2) |> Executor.optimize()
+
+      assert match?(
+               [{_, %Sagax{queue: [[_, {_, %Sagax{queue: [{_, _, _, _}]}, _, _}]]}, _, _}],
+               saga.queue
+             )
+    end
+  end
+
   describe "execute()" do
     test "executes a simple saga", %{builder: b, log: log} do
       saga =
@@ -21,6 +52,7 @@ defmodule Sagax.ExecutorTest do
         |> Sagax.add(effect(b, "a"))
         |> Sagax.add(effect(b, "b"))
         |> Sagax.add(effect(b, "c"))
+        |> Executor.optimize()
         |> Executor.execute()
 
       assert_saga saga, %{state: :ok}
@@ -42,6 +74,7 @@ defmodule Sagax.ExecutorTest do
         |> Sagax.add(effect(b, "a", tag: {:namespace, :tag}))
         |> Sagax.add(effect(b, "b", tag: :tag))
         |> Sagax.add(effect(b, "c", tag: "tag"))
+        |> Executor.optimize()
         |> Executor.execute()
 
       assert_saga saga, %{state: :ok}
@@ -60,6 +93,7 @@ defmodule Sagax.ExecutorTest do
         |> Sagax.add(effect(b, "a"))
         |> Sagax.add(nested_saga)
         |> Sagax.add(effect(b, "d", results: ["a", "b", "c"]))
+        |> Executor.optimize()
         |> Executor.execute()
 
       assert_saga saga, %{state: :ok}
@@ -74,6 +108,7 @@ defmodule Sagax.ExecutorTest do
         |> Sagax.add_async(effect(b, "b", sync: false, results: ["a"]))
         |> Sagax.add_async(effect(b, "c", sync: false, results: ["a"]))
         |> Sagax.add(effect(b, "d"))
+        |> Executor.optimize()
         |> Executor.execute()
 
       assert_saga saga, %{state: :ok}
@@ -109,6 +144,7 @@ defmodule Sagax.ExecutorTest do
         |> Sagax.add_async(effect(b, "b", results: []))
         |> Sagax.add_async(nested_saga_1)
         |> Sagax.add(nested_saga_4)
+        |> Executor.optimize()
         |> Executor.execute()
 
       assert_saga saga, %{state: :ok}
@@ -124,6 +160,7 @@ defmodule Sagax.ExecutorTest do
         |> Sagax.add(effect(b, "a"))
         |> Sagax.add(effect(b, "b"))
         |> Sagax.add(effect_error(b, "c"))
+        |> Executor.optimize()
         |> Executor.execute()
 
       assert_saga saga, %{state: :error}
@@ -137,6 +174,7 @@ defmodule Sagax.ExecutorTest do
         |> Sagax.add(effect(b, "a"), compensation(b, "a"))
         |> Sagax.add(effect(b, "b"))
         |> Sagax.add(effect_error(b, "c"), compensation(b, "c"))
+        |> Executor.optimize()
         |> Executor.execute()
 
       assert_saga saga, %{state: :error}
@@ -150,6 +188,7 @@ defmodule Sagax.ExecutorTest do
         |> Sagax.add_async(effect(b, "a"), compensation(b, "a"))
         |> Sagax.add_async(effect(b, "b"))
         |> Sagax.add_async(effect_error(b, "c"), compensation(b, "c"))
+        |> Executor.optimize()
         |> Executor.execute()
 
       assert_saga saga, %{state: :error}
@@ -168,6 +207,7 @@ defmodule Sagax.ExecutorTest do
         |> Sagax.add(effect(b, "a"))
         |> Sagax.add(nested_saga)
         |> Sagax.add(effect_error(b, "d"), compensation(b, "d"))
+        |> Executor.optimize()
         |> Executor.execute()
 
       assert_saga saga, %{state: :error}
