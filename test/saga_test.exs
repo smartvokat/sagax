@@ -13,6 +13,24 @@ defmodule SagaxTest do
     end
   end
 
+  describe "put_args()" do
+    test "sets args" do
+      saga = Sagax.new()
+      assert saga.args == nil
+      saga = Sagax.put_args(saga, %{some: "arg"})
+      assert saga.args == %{some: "arg"}
+    end
+  end
+
+  describe "put_context()" do
+    test "sets context" do
+      saga = Sagax.new()
+      assert saga.context == nil
+      saga = Sagax.put_context(saga, %{some: "context"})
+      assert saga.context == %{some: "context"}
+    end
+  end
+
   describe "execute()" do
     test "returns the saga" do
       {:ok, saga} =

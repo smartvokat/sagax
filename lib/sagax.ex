@@ -26,6 +26,8 @@ defmodule Sagax do
     %Sagax{opts: opts}
   end
 
+  def put_args(%Sagax{} = saga, args), do: %{saga | args: args}
+  def put_context(%Sagax{} = saga, context), do: %{saga | context: context}
 
   def inherit(%Sagax{} = base, %Sagax{} = saga) do
     base
