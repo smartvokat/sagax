@@ -26,10 +26,12 @@ defmodule Sagax do
     %Sagax{opts: opts}
   end
 
-  def inherit(%Sagax{} = base, %Sagax{inherits?: true} = saga),
-    do: %{base | args: saga.args, context: saga.context, opts: saga.opts}
 
-  def inherit(%Sagax{} = base, _), do: base
+  def inherit(%Sagax{} = base, %Sagax{} = saga) do
+    base
+    |> Map.update(:args, saga.args, fn v -> if is_nil(v), do: saga.args, else: v end)
+    |> Map.update(:context, saga.context, fn v -> if is_nil(v), do: saga.context, else: v end)
+  end
 
   @doc """
   Adds a function which receives the saga for lazy manipulation.
