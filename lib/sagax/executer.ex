@@ -108,7 +108,7 @@ defmodule Sagax.Executor do
 
   defp do_execute(%Sagax{queue: [{_, effect, _, opts} | _]} = saga) do
     effect
-    |> safe_apply([saga.results, saga.args, saga.context], opts, saga.opts)
+    |> safe_apply([Map.values(saga.results), saga.args, saga.context], opts, saga.opts)
     |> handle_execute_result(saga)
   end
 
@@ -139,7 +139,7 @@ defmodule Sagax.Executor do
     result = Map.get(results, id)
 
     comp
-    |> safe_apply([result, results, saga.args, saga.context], opts, saga.opts)
+    |> safe_apply([result, Map.values(results), saga.args, saga.context], opts, saga.opts)
     |> handle_compensate_result(saga)
   end
 

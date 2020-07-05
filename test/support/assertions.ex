@@ -34,7 +34,7 @@ defmodule Sagax.Test.Assertions do
 
   defmacro assert_saga_results(saga, results) do
     quote bind_quoted: [saga: saga, results: results] do
-      left = if match?(%Sagax{}, saga), do: Sagax.all(saga), else: Map.values(saga)
+      left = if match?(%Sagax{}, saga), do: Sagax.all(saga), else: saga
 
       assert length(left) == length(results),
         message: "Expected #{length(results)} results but got #{length(left)}",
