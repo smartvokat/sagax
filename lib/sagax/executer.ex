@@ -201,19 +201,13 @@ defmodule Sagax.Executor do
         last_result: error_or_result
     }
 
-  defp handle_execute_result({:raise, {_, _} = exception}, %{queue: [item | queue]} = saga),
-    do: %{
-      saga
-      | state: :error,
-        queue: queue,
-        stack: [item | saga.stack],
-        results: Map.put(saga.results, elem(item, 0), {exception, nil}),
-        last_result: exception
-    }
+  # TODO: Implement an on_error handler
+  defp handle_execute_result({:raise, {exception, stacktrace}}, _),
+    do: reraise(exception, stacktrace)
 
   defp handle_execute_result(_result, _saga) do
     # TODO: Implement this
-    raise "Invalid result"
+    raise "Panic"
   end
 
   defp handle_compensate_result(result, %{stack: [item | stack], results: results} = saga) do
