@@ -8,7 +8,6 @@ defmodule Sagax do
   defstruct args: nil,
             context: nil,
             executed?: false,
-            inherits?: true,
             last_result: nil,
             opts: [],
             queue: [],
