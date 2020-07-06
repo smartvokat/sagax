@@ -36,7 +36,7 @@ defmodule Sagax.Executor do
     |> handle_execute_result(saga)
   end
 
-  defp do_execute(%Sagax{queue: [{id, effects} | tail]} = saga) when is_list(effects) do
+  defp do_execute(%Sagax{queue: [{id, effects} | _]} = saga) when is_list(effects) do
     saga =
       Enum.reduce(effects, saga, fn
         {id, func}, acc ->
@@ -45,7 +45,6 @@ defmodule Sagax.Executor do
         _, acc ->
           acc
       end)
-      |> optimize()
 
     # A lazy function can prepend new stages, so we need to check if the first
     # item in the queue is still the same as `effects`. If this is the case,
@@ -57,10 +56,18 @@ defmodule Sagax.Executor do
         saga.queue
         |> Utils.peek_effect()
         |> Task.async_stream(
-          fn effect -> do_execute(%{saga | queue: [effect]}) end,
+          fn effect -> do_execute(%{saga | queue: [effect], stack: []}) end,
           saga.opts
         )
         |> Enum.reduce_while(%{saga | results: %{}}, fn
+          {:ok, %{state: :ok} = result_saga}, acc ->
+            {:cont,
+             %{
+               acc
+               | stack: acc.stack ++ result_saga.stack,
+                 results: Map.merge(acc.results, result_saga.results)
+             }}
+
           {:ok, %{state: :error} = result_saga}, acc ->
             {:halt,
              %{
@@ -70,20 +77,12 @@ defmodule Sagax.Executor do
                  results: Map.merge(acc.results, result_saga.results),
                  last_result: result_saga.last_result
              }}
-
-          {:ok, result_saga}, acc ->
-            {:cont,
-             %{
-               acc
-               | stack: acc.stack ++ result_saga.stack,
-                 results: Map.merge(acc.results, result_saga.results)
-             }}
         end)
 
       %{
         saga
         | state: inner_saga.state,
-          queue: tail,
+          queue: Utils.delete(saga.queue, id),
           stack: [{id, inner_saga.stack} | saga.stack],
           results: Map.merge(saga.results, inner_saga.results),
           last_result: inner_saga.last_result || saga.last_result

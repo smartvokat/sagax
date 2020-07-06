@@ -97,7 +97,7 @@ defmodule Sagax.ExecutorTest do
         |> Executor.execute()
 
       assert_saga saga, %{state: :ok}
-      assert_saga_results saga, ["a", "c", "d", "e", "g", "b", "f"]
+      assert_saga_results saga, ["a", "b", "c", "d", "e", "f", "g"]
       assert_log log, ["a", "c", "d", {"g", "e", "f", "b"}]
     end
 
