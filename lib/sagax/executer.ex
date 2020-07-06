@@ -15,6 +15,7 @@ defmodule Sagax.Executor do
         if next_saga != prev_saga, do: {:cont, next_saga}, else: {:halt, next_saga}
       end)
 
+  @spec execute(Sagax.t()) :: Sagax.t()
   def execute(%Sagax{queue: []} = saga), do: saga
   def execute(%Sagax{} = saga), do: do_execute(saga) |> next()
 

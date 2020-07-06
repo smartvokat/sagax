@@ -102,7 +102,7 @@ defmodule Sagax do
         reraise(error, stacktrace)
 
       %Sagax{state: :error, last_result: result} = saga ->
-        {:error, result, saga}
+        {:error, result, %{saga | executed?: true}}
     end
   end
 
