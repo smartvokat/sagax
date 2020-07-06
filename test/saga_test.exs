@@ -13,6 +13,30 @@ defmodule SagaxTest do
     end
   end
 
+  describe "inherit()" do
+    test "sets the args and context when uninitialized" do
+      saga_1 = Sagax.new()
+      saga_2 = Sagax.new() |> Sagax.put_args(%{a: "b"}) |> Sagax.put_context(%{c: "d"})
+      assert saga = Sagax.inherit(saga_1, saga_2)
+      assert saga.args == %{a: "b"}
+      assert saga.context == %{c: "d"}
+    end
+
+    test "ignores initialized args" do
+      saga_1 = Sagax.new() |> Sagax.put_args(%{a: "b1"})
+      saga_2 = Sagax.new() |> Sagax.put_args(%{a: "b2"})
+      assert saga = Sagax.inherit(saga_1, saga_2)
+      assert saga.args == %{a: "b1"}
+    end
+
+    test "ignores initialized context" do
+      saga_1 = Sagax.new() |> Sagax.put_context(%{c: "d1"})
+      saga_2 = Sagax.new() |> Sagax.put_context(%{c: "d2"})
+      assert saga = Sagax.inherit(saga_1, saga_2)
+      assert saga.context == %{c: "d1"}
+    end
+  end
+
   describe "put_args()" do
     test "sets args" do
       saga = Sagax.new()

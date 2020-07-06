@@ -138,7 +138,9 @@ defmodule Sagax.ExecutorTest do
       end
     end
 
-    test "executes a nested saga", %{builder: b, log: log} do
+    test "executes a nested saga", %{log: log} do
+      b = new_builder(log: log, args: %{a: "b"}, context: %{c: "d"})
+
       nested_saga =
         Sagax.new()
         |> Sagax.add(effect(b, "b"))
@@ -149,12 +151,32 @@ defmodule Sagax.ExecutorTest do
         |> Sagax.add(effect(b, "a"))
         |> Sagax.add(nested_saga)
         |> Sagax.add(effect(b, "d", results: ["a", "b", "c"]))
+        |> Sagax.put_args(%{a: "b"})
+        |> Sagax.put_context(%{c: "d"})
         |> Executor.optimize()
         |> Executor.execute()
 
       assert_saga saga, %{state: :ok}
       assert_saga_results saga, ["a", "b", "c", "d"]
       assert_log log, ["a", "b", "c", "d"]
+    end
+
+    test "executes a nested saga with correct args and context", %{builder: b} do
+      nested_opts = [args: %{a: "b"}, context: %{c: "d"}]
+
+      nested_saga =
+        Sagax.new()
+        |> Sagax.add(effect(b, "b", nested_opts))
+        |> Sagax.put_args(%{a: "b"})
+        |> Sagax.put_context(%{c: "d"})
+
+      saga =
+        Sagax.new()
+        |> Sagax.add(nested_saga)
+        |> Executor.optimize()
+        |> Executor.execute()
+
+      assert_saga saga, %{state: :ok}
     end
 
     test "executes effects in parallel", %{builder: b, log: log} do
