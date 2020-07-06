@@ -70,6 +70,17 @@ defmodule Sagax.ExecutorTest do
       assert_log log, []
     end
 
+    test "ignores empty results" do
+      saga =
+        Sagax.new()
+        |> Sagax.add(fn _, _, _, _ -> :ok end)
+        |> Executor.optimize()
+        |> Executor.execute()
+
+      assert_saga saga, %{state: :ok}
+      assert_saga_results saga, []
+    end
+
     test "supports tagged results", %{builder: b, log: log} do
       saga =
         Sagax.new()

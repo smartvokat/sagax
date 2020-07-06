@@ -145,12 +145,7 @@ defmodule Sagax.Executor do
   end
 
   defp handle_execute_result(:ok, %{queue: [item | queue]} = saga),
-    do: %{
-      saga
-      | queue: queue,
-        stack: [item | saga.stack],
-        results: Map.put(saga.results, elem(item, 0), nil)
-    }
+    do: %{saga | queue: queue, stack: [item | saga.stack]}
 
   defp handle_execute_result({:ok, value}, %{queue: [item | queue]} = saga),
     do: %{
