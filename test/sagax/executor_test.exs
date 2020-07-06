@@ -253,10 +253,14 @@ defmodule Sagax.ExecutorTest do
     end
 
     test "compensates a nested saga", %{builder: b, log: log} do
+      nested_opts = [args: %{a: "b"}, context: %{c: "d"}]
+
       nested_saga =
         Sagax.new()
-        |> Sagax.add(effect(b, "b"), compensation(b, "b"))
-        |> Sagax.add(effect(b, "c"), compensation(b, "c"))
+        |> Sagax.add(effect(b, "b", nested_opts), compensation(b, "b", nested_opts))
+        |> Sagax.add(effect(b, "c", nested_opts), compensation(b, "c", nested_opts))
+        |> Sagax.put_args(%{a: "b"})
+        |> Sagax.put_context(%{c: "d"})
 
       saga =
         Sagax.new()

@@ -128,7 +128,7 @@ defmodule Sagax.Executor do
   end
 
   def do_compensate(%Sagax{stack: [{_, %Sagax{} = inner_saga, _, _} | _]} = saga) do
-    %{saga | stack: inner_saga.stack}
+    %{inner_saga | state: :error}
     |> compensate()
     |> handle_compensate_result(saga)
   end
