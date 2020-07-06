@@ -21,8 +21,13 @@ defmodule Sagax do
   Creates a new saga.
   """
   def new(opts \\ []) do
+    args = Keyword.get(opts, :args, nil)
+    context = Keyword.get(opts, :context, nil)
+
+    opts = Keyword.drop(opts, [:args, :context])
     opts = Keyword.merge([max_concurrency: System.schedulers_online()], opts)
-    %Sagax{opts: opts}
+
+    %Sagax{opts: opts, args: args, context: context}
   end
 
   def put_args(%Sagax{} = saga, args), do: %{saga | args: args}

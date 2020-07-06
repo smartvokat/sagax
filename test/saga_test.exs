@@ -7,6 +7,18 @@ defmodule SagaxTest do
       assert Keyword.get(saga.opts, :max_concurrency) == System.schedulers_online()
     end
 
+    test "allows to initialize args" do
+      saga = Sagax.new(args: %{some: "arg"})
+      assert saga.args == %{some: "arg"}
+      refute Keyword.has_key?(saga.opts, :args)
+    end
+
+    test "allows to initialize context" do
+      saga = Sagax.new(context: %{some: "context"})
+      assert saga.context == %{some: "context"}
+      refute Keyword.has_key?(saga.opts, :context)
+    end
+
     test "allows to set :max_concurrency" do
       saga = Sagax.new(max_concurrency: 1000)
       assert Keyword.get(saga.opts, :max_concurrency) == 1000
