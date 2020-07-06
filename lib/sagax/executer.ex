@@ -2,19 +2,6 @@ defmodule Sagax.Executor do
   @moduledoc false
   alias Sagax.Utils
 
-  @doc """
-  Prepares a saga for optimal execution. Currently, it only removes async
-  stages with only one effect.
-  """
-  @spec optimize(Sagax.t()) :: Sagax.t()
-  def optimize(%Sagax{} = saga),
-    do:
-      Stream.cycle(0..1)
-      |> Enum.reduce_while(saga, fn _, prev_saga ->
-        next_saga = %{prev_saga | queue: Enum.map(prev_saga.queue, &do_optimize/1)}
-        if next_saga != prev_saga, do: {:cont, next_saga}, else: {:halt, next_saga}
-      end)
-
   @spec execute(Sagax.t()) :: Sagax.t()
   def execute(%Sagax{queue: []} = saga), do: saga
   def execute(%Sagax{} = saga), do: do_execute(saga) |> next()
@@ -243,18 +230,4 @@ defmodule Sagax.Executor do
         {:exit, :timeout}
     end
   end
-
-  defp do_optimize(%Sagax{queue: queue} = saga),
-    do: %{saga | queue: Enum.map(queue, &do_optimize/1)}
-
-  defp do_optimize({_, items}) when is_list(items) and length(items) === 1,
-    do: do_optimize(List.first(items))
-
-  defp do_optimize({_, items} = stage) when is_list(items),
-    do: put_elem(stage, 1, Enum.map(items, &do_optimize/1))
-
-  defp do_optimize({_, %Sagax{} = saga, _, _} = stage),
-    do: put_elem(stage, 1, do_optimize(saga))
-
-  defp do_optimize(stage), do: stage
 end
