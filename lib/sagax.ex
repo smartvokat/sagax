@@ -90,8 +90,11 @@ defmodule Sagax do
   @doc """
   Executes the function defined in the saga.
   """
-  def execute(%Sagax{} = saga, args, context \\ nil) do
-    %{saga | args: args, context: context}
+  def execute(%Sagax{} = saga, args \\ nil, context \\ nil) do
+    saga = if !is_nil(args), do: %{saga | args: args}, else: saga
+    saga = if !is_nil(context), do: %{saga | context: context}, else: saga
+
+    saga
     |> Executor.execute()
     |> case do
       %Sagax{state: :ok} = saga ->

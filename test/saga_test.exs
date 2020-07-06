@@ -75,6 +75,22 @@ defmodule SagaxTest do
         |> Sagax.execute(%{})
       end)
     end
+
+    test "allows to overwrite args" do
+      saga = Sagax.new() |> Sagax.put_args(%{a: "b"}) |> Sagax.execute()
+      assert {:ok, %Sagax{args: %{a: "b"}}} = saga
+
+      saga = Sagax.new() |> Sagax.put_args(%{a: "b"}) |> Sagax.execute(%{a: "c"})
+      assert {:ok, %Sagax{args: %{a: "c"}}} = saga
+    end
+
+    test "allows to overwrite context" do
+      saga = Sagax.new() |> Sagax.put_context(%{c: "d"}) |> Sagax.execute()
+      assert {:ok, %Sagax{context: %{c: "d"}}} = saga
+
+      saga = Sagax.new() |> Sagax.put_context(%{c: "d"}) |> Sagax.execute(%{}, %{c: "e"})
+      assert {:ok, %Sagax{context: %{c: "e"}}} = saga
+    end
   end
 
   describe "find()" do
