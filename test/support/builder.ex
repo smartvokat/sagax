@@ -19,8 +19,8 @@ defmodule Sagax.Test.Builder do
         Process.sleep(:rand.uniform(250))
       end
 
-      assert args == Map.get(builder, :args)
-      assert context == Map.get(builder, :context)
+      assert args == Keyword.get(opts, :args, Map.get(builder, :args))
+      assert context == Keyword.get(opts, :context, Map.get(builder, :context))
 
       if Keyword.has_key?(opts, :tag) do
         {:ok, Log.log(builder.log, value), Keyword.get(opts, :tag)}
@@ -40,8 +40,8 @@ defmodule Sagax.Test.Builder do
         Process.sleep(:rand.uniform(250))
       end
 
-      assert args == Map.get(builder, :args)
-      assert context == Map.get(builder, :context)
+      assert args == Keyword.get(opts, :args, Map.get(builder, :args))
+      assert context == Keyword.get(opts, :context, Map.get(builder, :context))
 
       {:error, Log.log(builder.log, value)}
     end
@@ -49,10 +49,6 @@ defmodule Sagax.Test.Builder do
 
   def compensation(builder, value, opts \\ []) do
     fn result, results, args, context, _opts ->
-      if match?(%ExUnit.AssertionError{}, result) do
-        raise(result)
-      end
-
       assert result == value,
         message: "Expected the result of the effect to compensate to match",
         left: result,
@@ -66,8 +62,8 @@ defmodule Sagax.Test.Builder do
         Process.sleep(:rand.uniform(250))
       end
 
-      assert args == Map.get(builder, :args)
-      assert context == Map.get(builder, :context)
+      assert args == Keyword.get(opts, :args, Map.get(builder, :args))
+      assert context == Keyword.get(opts, :context, Map.get(builder, :context))
 
       Log.log(builder.log, "#{value}.comp")
 
