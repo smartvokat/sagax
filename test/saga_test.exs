@@ -58,12 +58,30 @@ defmodule SagaxTest do
     end
   end
 
+  describe "put_new_args()" do
+    test "sets args if they are nil" do
+      saga = Sagax.new() |> Sagax.put_new_args(%{some: "arg"})
+      assert %Sagax{args: %{some: "arg"}} = saga
+      saga = Sagax.new(args: %{some: "arg1"}) |> Sagax.put_new_args(%{some: "arg2"})
+      assert %Sagax{args: %{some: "arg1"}} = saga
+    end
+  end
+
   describe "put_context()" do
     test "sets context" do
       saga = Sagax.new()
       assert saga.context == nil
       saga = Sagax.put_context(saga, %{some: "context"})
       assert saga.context == %{some: "context"}
+    end
+  end
+
+  describe "put_new_context()" do
+    test "sets context if they are nil" do
+      saga = Sagax.new() |> Sagax.put_new_context(%{some: "context"})
+      assert %Sagax{context: %{some: "context"}} = saga
+      saga = Sagax.new(context: %{some: "context1"}) |> Sagax.put_new_context(%{some: "context2"})
+      assert %Sagax{context: %{some: "context1"}} = saga
     end
   end
 

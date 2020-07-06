@@ -31,7 +31,14 @@ defmodule Sagax do
   end
 
   def put_args(%Sagax{} = saga, args), do: %{saga | args: args}
+
+  def put_new_args(%Sagax{} = saga, args),
+    do: if(is_nil(saga.args), do: %{saga | args: args}, else: saga)
+
   def put_context(%Sagax{} = saga, context), do: %{saga | context: context}
+
+  def put_new_context(%Sagax{} = saga, context),
+    do: if(is_nil(saga.context), do: %{saga | context: context}, else: saga)
 
   def inherit(%Sagax{} = base, %Sagax{} = saga) do
     base
