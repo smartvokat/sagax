@@ -205,37 +205,24 @@ defmodule Sagax.Executor do
   defp handle_execute_result({:raise, {exception, stacktrace}}, _),
     do: reraise(exception, stacktrace)
 
-  defp handle_execute_result(_result, _saga) do
-    # TODO: Implement this
-    raise "Panic"
-  end
+  # TODO: Implement this
+  defp handle_execute_result(_result, _saga), do: raise("Panic")
 
-  defp handle_compensate_result(result, %{stack: [item | stack], results: results} = saga) do
-    case result do
-      :ok ->
-        %{saga | stack: stack, results: Map.delete(results, elem(item, 0))}
+  defp handle_compensate_result(:ok, %{stack: [item | stack], results: results} = saga),
+    do: %{saga | stack: stack, results: Map.delete(results, elem(item, 0))}
 
-      {:error, _error_or_result} ->
-        # TODO: Implement an on_error handler
-        raise "Panic"
+  # TODO: Implement an on_error handler
+  defp handle_compensate_result({:error, _error_or_result}, _), do: raise("Panic")
 
-      {:raise, {exception, stacktrace}} ->
-        # TODO: Implement an on_error handler
-        reraise(exception, stacktrace)
+  # TODO: Implement an on_error handler
+  defp handle_compensate_result({:raise, {exception, stacktrace}}, _),
+    do: reraise(exception, stacktrace)
 
-      # {:exit, :timeout} ->
-      #   compensate(%{
-      #     saga
-      #     | aborted?: true,
-      #       stack: [item | saga.stack],
-      #       results: [{nil, nil} | saga.results]
-      #       last_result: nil
-      #   })
+  defp handle_compensate_result(%Sagax{results: results}, %{stack: [_ | stack]} = saga),
+    do: %{saga | stack: stack, results: results}
 
-      %Sagax{results: results} ->
-        %{saga | stack: stack, results: results}
-    end
-  end
+  # TODO: Implement this
+  defp handle_compensate_result(_, _), do: raise("Panic")
 
   defp safe_apply(func, args, opts, saga_opts) do
     task =
