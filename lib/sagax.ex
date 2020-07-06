@@ -108,7 +108,10 @@ defmodule Sagax do
     end
   end
 
-  def find(%Sagax{results: results}, query), do: find(results, query)
+  def find(%Sagax{results: results}, query) when is_map(results),
+    do: find(Map.values(results), query)
+
+  def find(%Sagax{results: results}, query) when is_list(results), do: find(results, query)
 
   def find(results, query)
       when (is_list(results) and is_tuple(query)) or is_binary(query) or is_atom(query) do
