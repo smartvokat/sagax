@@ -18,14 +18,22 @@ defmodule Sagax.Executor do
     |> safe_apply([saga, saga.args, saga.context], saga.opts, saga.opts)
     |> case do
       %Sagax{} = result ->
+        {:ok, result}
+
+      {:ok, %Sagax{}} = result ->
         result
+
+      {:error, _} = error ->
+        error
 
       {:raise, {exception, stacktrace}} ->
         # TODO: Implement an on_error handler
         reraise(exception, stacktrace)
 
-      _ ->
-        raise RuntimeError, "Unexpected result from function, expected a %Sagax{} struct."
+      result ->
+        raise RuntimeError,
+              "Unexpected result from function, expected a %Sagax{} struct but got " <>
+                inspect(result, limit: 2, printable_limit: 10)
     end
   end
 
@@ -37,61 +45,81 @@ defmodule Sagax.Executor do
   end
 
   defp do_execute(%Sagax{queue: [{id, effects} | _]} = saga) when is_list(effects) do
-    saga =
-      Enum.reduce(effects, saga, fn
-        {id, func}, acc ->
-          execute_lazy(Utils.delete(acc, id), func)
+    effects
+    |> Enum.reduce_while(saga, fn
+      {id, func}, acc ->
+        case execute_lazy(Utils.delete(acc, id), func) do
+          {:ok, new_saga} -> {:cont, new_saga}
+          {:error, error} -> {:halt, {acc, error}}
+        end
 
-        _, acc ->
-          acc
-      end)
+      _, acc ->
+        {:cont, acc}
+    end)
+    |> case do
+      %Sagax{} = saga ->
+        # A lazy function can prepend new stages, so we need to check if the first
+        # item in the queue is still the same as `effects`. If this is the case,
+        # we can continue executing. If not, we use `next` to process the new items first.
+        if Utils.peek_id(saga.queue) !== id do
+          next(saga)
+        else
+          inner_saga =
+            saga.queue
+            |> Utils.peek_effect()
+            |> Task.async_stream(
+              fn effect -> do_execute(%{saga | queue: [effect], stack: []}) end,
+              saga.opts
+            )
+            |> Enum.reduce_while(%{saga | results: %{}}, fn
+              {:ok, %{state: :ok} = result_saga}, acc ->
+                {:cont,
+                 %{
+                   acc
+                   | stack: acc.stack ++ result_saga.stack,
+                     results: Map.merge(acc.results, result_saga.results)
+                 }}
 
-    # A lazy function can prepend new stages, so we need to check if the first
-    # item in the queue is still the same as `effects`. If this is the case,
-    # we can continue executing. If not, we use `next` to process the new items first.
-    if Utils.peek_id(saga.queue) !== id do
-      next(saga)
-    else
-      inner_saga =
-        saga.queue
-        |> Utils.peek_effect()
-        |> Task.async_stream(
-          fn effect -> do_execute(%{saga | queue: [effect], stack: []}) end,
-          saga.opts
-        )
-        |> Enum.reduce_while(%{saga | results: %{}}, fn
-          {:ok, %{state: :ok} = result_saga}, acc ->
-            {:cont,
-             %{
-               acc
-               | stack: acc.stack ++ result_saga.stack,
-                 results: Map.merge(acc.results, result_saga.results)
-             }}
+              {:ok, %{state: :error} = result_saga}, acc ->
+                {:halt,
+                 %{
+                   acc
+                   | state: :error,
+                     stack: acc.stack ++ result_saga.stack,
+                     results: Map.merge(acc.results, result_saga.results),
+                     last_result: result_saga.last_result
+                 }}
+            end)
 
-          {:ok, %{state: :error} = result_saga}, acc ->
-            {:halt,
-             %{
-               acc
-               | state: :error,
-                 stack: acc.stack ++ result_saga.stack,
-                 results: Map.merge(acc.results, result_saga.results),
-                 last_result: result_saga.last_result
-             }}
-        end)
+          %{
+            saga
+            | state: inner_saga.state,
+              queue: Utils.delete(saga.queue, id),
+              stack: [{id, inner_saga.stack} | saga.stack],
+              results: Map.merge(saga.results, inner_saga.results),
+              last_result: inner_saga.last_result || saga.last_result
+          }
+        end
 
-      %{
-        saga
-        | state: inner_saga.state,
-          queue: Utils.delete(saga.queue, id),
-          stack: [{id, inner_saga.stack} | saga.stack],
-          results: Map.merge(saga.results, inner_saga.results),
-          last_result: inner_saga.last_result || saga.last_result
-      }
+      {saga, error} ->
+        %{
+          saga
+          | state: :error,
+            queue: Utils.delete(saga.queue, id),
+            last_result: error
+        }
     end
   end
 
-  defp do_execute(%Sagax{queue: [{_, func} | tail]} = saga),
-    do: execute_lazy(%{saga | queue: tail}, func)
+  defp do_execute(%Sagax{queue: [{_, func} | tail]} = saga) do
+    case execute_lazy(%{saga | queue: tail}, func) do
+      {:ok, result_saga} ->
+        result_saga
+
+      {:error, error} ->
+        %{saga | state: :error, queue: tail, last_result: error}
+    end
+  end
 
   defp do_execute(%Sagax{queue: [{_, effect, _, opts} | _]} = saga) do
     effect
@@ -168,7 +196,8 @@ defmodule Sagax.Executor do
        ),
        do: %{
          saga
-         | stack: [item | saga.stack],
+         | state: :error,
+           stack: [item | saga.stack],
            results: Map.merge(saga.results, results),
            last_result: last_result
        }

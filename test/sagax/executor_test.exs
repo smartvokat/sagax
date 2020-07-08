@@ -84,6 +84,33 @@ defmodule Sagax.ExecutorTest do
       assert_log log, ["a", "lazy", "b"]
     end
 
+    test "handle :ok tuple in lazy functions" do
+      saga =
+        Sagax.new()
+        |> Sagax.add_lazy(fn saga, _, _, _ -> {:ok, saga} end)
+        |> Executor.execute()
+
+      assert_saga saga, %{state: :ok}
+    end
+
+    test "handles errors in lazy functions" do
+      saga =
+        Sagax.new()
+        |> Sagax.add_lazy(fn _, _, _, _ -> {:error, :some_error} end)
+        |> Executor.execute()
+
+      assert_saga saga, %{state: :error}
+      assert saga.last_result == :some_error
+    end
+
+    test "handles exceptions in lazy functions" do
+      assert_raise RuntimeError, "Lazy exception", fn ->
+        Sagax.new()
+        |> Sagax.add_lazy(fn _, _, _, _ -> raise "Lazy exception" end)
+        |> Executor.execute()
+      end
+    end
+
     test "executes async lazy functions", %{builder: b, log: log} do
       saga =
         Sagax.new()
@@ -148,7 +175,7 @@ defmodule Sagax.ExecutorTest do
       assert_saga saga, %{state: :ok}
     end
 
-    test "executes effects in parallel", %{builder: b, log: log} do
+    test "executes async effects in parallel", %{builder: b, log: log} do
       saga =
         Sagax.new()
         |> Sagax.add(effect(b, "a"))
@@ -162,7 +189,7 @@ defmodule Sagax.ExecutorTest do
       assert_log log, ["a", {"b", "c"}, "d"]
     end
 
-    test "executes nested and parallel effects", %{builder: b, log: log} do
+    test "executes nested and async effects", %{builder: b, log: log} do
       nested_saga_1 =
         Sagax.new()
         |> Sagax.add(effect(b, "c", results: []))
@@ -225,7 +252,26 @@ defmodule Sagax.ExecutorTest do
       assert_log log, ["a", "b", "c", "c.comp", "a.comp"]
     end
 
-    test "compensates parallel effects in parallel", %{builder: b, log: log} do
+    # TODO: For this test to work we need position awareness when executing
+    # lazy effects. The problem here is, that effect "b" will be added after "c"
+    # and therefore is never executed.
+    @tag :skip
+    test "handes lazy effects", %{builder: b, log: log} do
+      saga =
+        Sagax.new()
+        |> Sagax.add(effect(b, "a"), compensation(b, "a"))
+        |> Sagax.add_lazy(fn saga, _, _, _ ->
+          Sagax.add(saga, effect(b, "b"), compensation(b, "b"))
+        end)
+        |> Sagax.add(effect_error(b, "c"), compensation(b, "c"))
+        |> Executor.execute()
+
+      assert_saga saga, %{state: :error}
+      assert_saga_results saga, []
+      assert_log log, ["a", "c", "b", "b.comp", "c.comp", "a.comp"]
+    end
+
+    test "compensates async effects in parallel", %{builder: b, log: log} do
       saga =
         Sagax.new()
         |> Sagax.add_async(effect(b, "a"), compensation(b, "a"))
