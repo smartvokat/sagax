@@ -135,6 +135,12 @@ defmodule SagaxTest do
       saga = %Sagax{results: ["a", {"b", {"ns", :tag}}, {"c", :tag}]}
       assert Sagax.find(saga, {"ns", :_}) == "b"
     end
+
+    test "allows to pass a default value" do
+      saga = Sagax.new()
+      assert Sagax.find(saga, :non_existing) == nil
+      assert Sagax.find(saga, :non_existing, :default) == :default
+    end
   end
 
   describe "all()" do
