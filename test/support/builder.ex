@@ -9,65 +9,77 @@ defmodule Sagax.Test.Builder do
 
   def new_builder(opts), do: struct!(Builder, opts)
 
-  def effect(builder, value, opts \\ []) do
-    fn results, args, context, _opts ->
-      if Keyword.has_key?(opts, :results) do
-        assert_saga_results results, Keyword.get(opts, :results, [])
+  def effect(builder, value, outer_opts \\ []) do
+    fn results, args, context, opts ->
+      if Keyword.has_key?(outer_opts, :results) do
+        assert_saga_results results, Keyword.get(outer_opts, :results, [])
       end
 
-      if Keyword.get(opts, :delay, true) do
+      if Keyword.has_key?(outer_opts, :opts) do
+        assert opts == Keyword.get(outer_opts, :opts)
+      end
+
+      if Keyword.get(outer_opts, :delay, true) do
         Process.sleep(:rand.uniform(250))
       end
 
-      assert args == Keyword.get(opts, :args, Map.get(builder, :args))
-      assert context == Keyword.get(opts, :context, Map.get(builder, :context))
+      assert args == Keyword.get(outer_opts, :args, Map.get(builder, :args))
+      assert context == Keyword.get(outer_opts, :context, Map.get(builder, :context))
 
-      if Keyword.has_key?(opts, :tag) do
-        {:ok, Log.log(builder.log, value), Keyword.get(opts, :tag)}
+      if Keyword.has_key?(outer_opts, :tag) do
+        {:ok, Log.log(builder.log, value), Keyword.get(outer_opts, :tag)}
       else
         {:ok, Log.log(builder.log, value)}
       end
     end
   end
 
-  def effect_error(builder, value, opts \\ []) do
-    fn results, args, context, _opts ->
-      if Keyword.has_key?(opts, :results) do
-        assert_saga_results results, Keyword.get(opts, :results, [])
+  def effect_error(builder, value, outer_opts \\ []) do
+    fn results, args, context, opts ->
+      if Keyword.has_key?(outer_opts, :results) do
+        assert_saga_results results, Keyword.get(outer_opts, :results, [])
       end
 
-      if Keyword.get(opts, :delay, true) do
+      if Keyword.has_key?(outer_opts, :opts) do
+        assert opts == Keyword.get(outer_opts, :opts)
+      end
+
+      if Keyword.get(outer_opts, :delay, true) do
         Process.sleep(:rand.uniform(250))
       end
 
-      assert args == Keyword.get(opts, :args, Map.get(builder, :args))
-      assert context == Keyword.get(opts, :context, Map.get(builder, :context))
+      assert args == Keyword.get(outer_opts, :args, Map.get(builder, :args))
+      assert context == Keyword.get(outer_opts, :context, Map.get(builder, :context))
 
       {:error, Log.log(builder.log, value)}
     end
   end
 
-  def compensation(builder, value, opts \\ []) do
-    fn result, results, args, context, _opts ->
+  def compensation(builder, value, outer_opts \\ []) do
+    fn result, results, args, context, opts ->
       assert result == value,
         message: "Expected the result of the effect to compensate to match",
         left: result,
         right: value
 
-      if Keyword.has_key?(opts, :results) do
-        assert_saga_results results, Keyword.get(opts, :results, [])
+      if Keyword.has_key?(outer_opts, :results) do
+        assert_saga_results results, Keyword.get(outer_opts, :results, [])
       end
 
-      if Keyword.get(opts, :delay, true) do
+      if Keyword.has_key?(outer_opts, :opts) do
+        assert opts == Keyword.get(outer_opts, :opts)
+      end
+
+      if Keyword.get(outer_opts, :delay, true) do
         Process.sleep(:rand.uniform(250))
       end
 
-      assert args == Keyword.get(opts, :args, Map.get(builder, :args))
-      assert context == Keyword.get(opts, :context, Map.get(builder, :context))
+      assert args == Keyword.get(outer_opts, :args, Map.get(builder, :args))
+      assert context == Keyword.get(outer_opts, :context, Map.get(builder, :context))
 
       Log.log(builder.log, "#{value}.comp")
 
-      Keyword.get(opts, :result, :ok)
+      Keyword.get(outer_opts, :result, :ok)
     end
   end
 end
