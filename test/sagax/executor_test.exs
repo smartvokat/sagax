@@ -291,7 +291,10 @@ defmodule Sagax.ExecutorTest do
 
       nested_saga =
         Sagax.new()
-        |> Sagax.add(effect(b, "b", nested_opts), compensation(b, "b", nested_opts))
+        |> Sagax.add(
+          effect(b, "b", Keyword.put(nested_opts, :tag, {:hello, :world})),
+          compensation(b, "b", nested_opts)
+        )
         |> Sagax.add(effect(b, "c", nested_opts), compensation(b, "c", nested_opts))
         |> Sagax.put_args(%{a: "b"})
         |> Sagax.put_context(%{c: "d"})

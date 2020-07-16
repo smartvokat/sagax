@@ -152,6 +152,7 @@ defmodule Sagax.Executor do
 
   def do_compensate(%Sagax{stack: [{id, _, comp, opts} | _], results: results} = saga) do
     result = Map.get(results, id)
+    result = if is_tuple(result), do: elem(result, 0), else: result
 
     comp
     |> safe_apply([result, Map.values(results), saga.args, saga.context], opts, saga.opts)
