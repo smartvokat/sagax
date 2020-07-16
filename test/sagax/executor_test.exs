@@ -158,12 +158,14 @@ defmodule Sagax.ExecutorTest do
       assert_log log, ["a", "b", "c", "d"]
     end
 
-    test "executes a nested saga with correct args and context", %{builder: b} do
-      nested_opts = [args: %{a: "b"}, context: %{c: "d"}]
+    test "executes a nested saga with correct args, opts, and context", %{builder: b} do
+      nested_opts_1 = [args: %{a: "b"}, context: %{c: "d"}, opts: [a: "opt"]]
+      nested_opts_2 = [args: %{a: "b"}, context: %{c: "d"}, opts: [a: "opt", b: "opt"]]
 
       nested_saga =
-        Sagax.new()
-        |> Sagax.add(effect(b, "b", nested_opts))
+        Sagax.new(a: "opt")
+        |> Sagax.add(effect(b, "b", nested_opts_1))
+        |> Sagax.add(effect(b, "b", nested_opts_2), :noop, b: "opt")
         |> Sagax.put_args(%{a: "b"})
         |> Sagax.put_context(%{c: "d"})
 
@@ -304,6 +306,26 @@ defmodule Sagax.ExecutorTest do
       assert_saga saga, %{state: :error}
       assert_saga_results saga, []
       assert_log log, ["a", "b", "c", "d", "d.comp", "c.comp", "b.comp"]
+    end
+
+    test "compensates a nested saga with correct args, opts, and context", %{builder: b} do
+      nested_opts_1 = [args: %{a: "b"}, context: %{c: "d"}, opts: [a: "opt", b: "opt"]]
+      nested_opts_2 = [args: %{a: "b"}, context: %{c: "d"}, opts: [a: "opt"]]
+
+      nested_saga =
+        Sagax.new(a: "opt")
+        |> Sagax.add(effect(b, "a", nested_opts_1), compensation(b, "a", nested_opts_1), b: "opt")
+        |> Sagax.add(effect(b, "b", nested_opts_2), compensation(b, "b", nested_opts_2))
+        |> Sagax.put_args(%{a: "b"})
+        |> Sagax.put_context(%{c: "d"})
+
+      saga =
+        Sagax.new()
+        |> Sagax.add(nested_saga)
+        |> Sagax.add(effect_error(b, "d"))
+        |> Executor.execute()
+
+      assert_saga saga, %{state: :error}
     end
   end
 end

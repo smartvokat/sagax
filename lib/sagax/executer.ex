@@ -239,7 +239,7 @@ defmodule Sagax.Executor do
     task =
       fn ->
         try do
-          apply(func, args ++ [opts])
+          apply(func, args ++ [Keyword.merge(saga_opts, opts)])
         rescue
           exception ->
             {:raise, {exception, __STACKTRACE__}}

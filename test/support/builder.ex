@@ -16,7 +16,12 @@ defmodule Sagax.Test.Builder do
       end
 
       if Keyword.has_key?(outer_opts, :opts) do
-        assert opts == Keyword.get(outer_opts, :opts)
+        assert Enum.all?(Keyword.get(outer_opts, :opts), fn {k, v} ->
+                 Keyword.get(opts, k) === v
+               end),
+               message: "Expected opts to match",
+               left: opts,
+               right: Keyword.get(outer_opts, :opts)
       end
 
       if Keyword.get(outer_opts, :delay, true) do
@@ -41,7 +46,12 @@ defmodule Sagax.Test.Builder do
       end
 
       if Keyword.has_key?(outer_opts, :opts) do
-        assert opts == Keyword.get(outer_opts, :opts)
+        assert Enum.all?(Keyword.get(outer_opts, :opts), fn {k, v} ->
+                 Keyword.get(opts, k) === v
+               end),
+               message: "Expected opts to match",
+               left: opts,
+               right: Keyword.get(outer_opts, :opts)
       end
 
       if Keyword.get(outer_opts, :delay, true) do
@@ -67,7 +77,12 @@ defmodule Sagax.Test.Builder do
       end
 
       if Keyword.has_key?(outer_opts, :opts) do
-        assert opts == Keyword.get(outer_opts, :opts)
+        assert Enum.all?(Keyword.get(outer_opts, :opts), fn {k, v} ->
+                 Keyword.get(opts, k) === v
+               end),
+               message: "Expected opts to match",
+               left: opts,
+               right: Keyword.get(outer_opts, :opts)
       end
 
       if Keyword.get(outer_opts, :delay, true) do
