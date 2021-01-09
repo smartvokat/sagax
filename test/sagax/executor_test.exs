@@ -77,11 +77,12 @@ defmodule Sagax.ExecutorTest do
 
           Sagax.add(saga, effect(b, "b", results: ["a"]))
         end)
+        |> Sagax.add(effect(b, "c", results: ["a", "b"]))
         |> Executor.execute()
 
       assert_saga saga, %{state: :ok}
-      assert_saga_results saga, ["a", "b"]
-      assert_log log, ["a", "lazy", "b"]
+      assert_saga_results saga, ["a", "b", "c"]
+      assert_log log, ["a", "lazy", "b", "c"]
     end
 
     test "handle :ok tuple in lazy functions" do
@@ -125,7 +126,7 @@ defmodule Sagax.ExecutorTest do
 
       assert_saga saga, %{state: :ok}
       assert_saga_results saga, ["a", "b", "c", "d", "e", "f", "g"]
-      assert_log log, ["a", "c", "d", {"g", "e", "f", "b"}]
+      assert_log log, ["a", {"g", "f", "b", "e"}, "c", "d"]
     end
 
     test "fails when lazy functions do not return the saga" do

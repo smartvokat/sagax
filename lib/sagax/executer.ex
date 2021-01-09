@@ -18,10 +18,12 @@ defmodule Sagax.Executor do
     |> safe_apply([saga, saga.args, saga.context], saga.opts, saga.opts)
     |> case do
       %Sagax{} = result ->
-        {:ok, result}
+        {head, tail} = Enum.split_with(result.queue, &Enum.member?(saga.queue, &1))
+        {:ok, %{result | queue: tail ++ head}}
 
-      {:ok, %Sagax{}} = result ->
-        result
+      {:ok, %Sagax{} = result} ->
+        {head, tail} = Enum.split_with(result.queue, &Enum.member?(saga.queue, &1))
+        {:ok, %{result | queue: tail ++ head}}
 
       {:error, _} = error ->
         error
