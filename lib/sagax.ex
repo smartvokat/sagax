@@ -146,6 +146,30 @@ defmodule Sagax do
     |> Enum.map(&elem(&1, 0))
   end
 
+  def transaction(%Sagax{} = saga, repo, transaction_opts \\ []) do
+    return =
+      repo.transaction(
+        fn ->
+          case execute(saga) do
+            {:ok, saga} ->
+              {:ok, saga}
+            {:error, result, _saga} ->
+              repo.rollback(result)
+          end
+        end,
+        transaction_opts
+      )
+
+    case return do
+      {:ok, {:error, reason}} ->
+        {:error, %{saga | executed?: true, state: :error, last_result: reason, queue: []}}
+      {:ok, result} ->
+        result
+      {:error, reason} ->
+        {:error, %{saga | executed?: true, state: :error, last_result: reason, queue: []}}
+    end
+  end
+
   defp unique_id(), do: System.unique_integer([:positive])
 
   defp matches?({_, {_, _}}, {:_, :_}), do: true

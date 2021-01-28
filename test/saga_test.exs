@@ -1,6 +1,8 @@
 defmodule SagaxTest do
   use ExUnit.Case
 
+  import Sagax.Test.Assertions
+
   describe "new()" do
     test "sets :max_concurrency to System.schedulers_online() by default" do
       saga = Sagax.new()
@@ -151,6 +153,41 @@ defmodule SagaxTest do
       assert Sagax.all(saga, {"ns", :tag}) == ["d"]
       assert Sagax.all(saga, {"ns", :_}) == ["d"]
       assert Sagax.all(saga, "a") == []
+    end
+  end
+
+  describe "transaction/2" do
+    test "executes the sagax" do
+      sagax = Sagax.add(Sagax.new(), fn _, _, _, _ -> {:ok, "value"} end)
+
+      {:ok, saga} = Sagax.transaction(sagax, TestRepo)
+
+      assert %Sagax{} = saga
+      assert_saga saga, %{state: :ok}
+      assert_saga_results saga, ["value"]
+      assert_receive {:transaction, _fun, []}
+    end
+
+    test "accepts transaction options" do
+      sagax = Sagax.add(Sagax.new(), fn _, _, _, _ -> {:ok, "value"} end)
+
+      {:ok, saga} = Sagax.transaction(sagax, TestRepo, transaction: :opts)
+
+      assert %Sagax{} = saga
+      assert_saga saga, %{state: :ok}
+      assert_saga_results saga, ["value"]
+      assert_receive {:transaction, _fun, transaction: :opts}
+    end
+
+    test "rollbacks transaction on errors" do
+      sagax = Sagax.add(Sagax.new(), fn _, _, _, _ -> {:error, "rollback!"} end)
+
+      {:error, saga} = Sagax.transaction(sagax, TestRepo)
+
+      assert %Sagax{} = saga
+      assert_saga saga, %{state: :error}
+      assert saga.last_result == "rollback!"
+      assert_receive {:transaction, _fun, []}
     end
   end
 end
