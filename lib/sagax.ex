@@ -162,11 +162,11 @@ defmodule Sagax do
 
     case return do
       {:ok, {:error, reason}} ->
-        {:error, %{saga | executed?: true, state: :error, last_result: reason, queue: []}}
+        {:error, reason, %{saga | executed?: true, state: :error, last_result: reason, queue: []}}
       {:ok, result} ->
         result
       {:error, reason} ->
-        {:error, %{saga | executed?: true, state: :error, last_result: reason, queue: []}}
+        {:error, reason, %{saga | executed?: true, state: :error, last_result: reason, queue: []}}
     end
   end
 
