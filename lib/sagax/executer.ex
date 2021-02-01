@@ -2,7 +2,6 @@ defmodule Sagax.Executor do
   @moduledoc false
   alias Sagax.Utils
 
-
   @spec execute(Sagax.t()) :: Sagax.t()
   def execute(%Sagax{queue: []} = saga), do: saga
   def execute(%Sagax{} = saga), do: do_execute(saga) |> next()
