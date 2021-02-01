@@ -69,7 +69,7 @@ defmodule Sagax.Executor do
           inner_saga =
             saga.queue
             |> Utils.peek_effect()
-            |> Task.async_stream(
+            |> task_module().async_stream(
               fn effect -> do_execute(%{saga | queue: [effect], stack: []}) end,
               saga.opts
             )
@@ -132,7 +132,7 @@ defmodule Sagax.Executor do
   def do_compensate(%Sagax{stack: [{_, items} | tail]} = saga) when is_list(items) do
     inner_saga =
       items
-      |> Task.async_stream(
+      |> task_module().async_stream(
         fn item -> {elem(item, 0), do_compensate(%{saga | stack: [item]})} end,
         saga.opts
       )
@@ -248,17 +248,21 @@ defmodule Sagax.Executor do
             {:raise, {exception, __STACKTRACE__}}
         end
       end
-      |> Task.async()
+      |> task_module().async()
 
     timeout = Keyword.get(saga_opts, :timeout, 5000)
     timeout = Keyword.get(opts, :timeout, timeout)
 
-    case Task.yield(task, timeout) || Task.shutdown(task, timeout) do
+    case task_module().yield(task, timeout) || task_module().shutdown(task, timeout) do
       {:ok, result} ->
         result
 
       nil ->
         {:exit, :timeout}
     end
+  end
+
+  defp task_module do
+    Application.get_env(:sagax, :task_module, Task)
   end
 end

@@ -153,6 +153,7 @@ defmodule Sagax do
           case execute(saga) do
             {:ok, saga} ->
               {:ok, saga}
+
             {:error, result, _saga} ->
               repo.rollback(result)
           end
@@ -162,11 +163,13 @@ defmodule Sagax do
 
     case return do
       {:ok, {:error, reason}} ->
-        {:error, %{saga | executed?: true, state: :error, last_result: reason, queue: []}}
+        {:error, reason, %{saga | executed?: true, state: :error, last_result: reason, queue: []}}
+
       {:ok, result} ->
         result
+
       {:error, reason} ->
-        {:error, %{saga | executed?: true, state: :error, last_result: reason, queue: []}}
+        {:error, reason, %{saga | executed?: true, state: :error, last_result: reason, queue: []}}
     end
   end
 

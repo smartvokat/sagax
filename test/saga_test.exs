@@ -182,11 +182,11 @@ defmodule SagaxTest do
     test "rollbacks transaction on errors" do
       sagax = Sagax.add(Sagax.new(), fn _, _, _, _ -> {:error, "rollback!"} end)
 
-      {:error, saga} = Sagax.transaction(sagax, TestRepo)
+      {:error, reason, saga} = Sagax.transaction(sagax, TestRepo)
 
       assert %Sagax{} = saga
       assert_saga saga, %{state: :error}
-      assert saga.last_result == "rollback!"
+      assert reason == "rollback!"
       assert_receive {:transaction, _fun, []}
     end
   end
