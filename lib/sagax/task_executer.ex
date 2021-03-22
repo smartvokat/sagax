@@ -1,5 +1,6 @@
 defmodule Sagax.TaskExecuter do
   alias Sagax
+  alias Sagax.Op
 
   import Sagax.Executer
 
@@ -8,7 +9,7 @@ defmodule Sagax.TaskExecuter do
   @doc """
   Executes a saga.
   """
-  @impl Sagax.Executer
+  @impl true
   def execute(saga), do: do_execute(%{saga | queue: Enum.reverse(saga.queue)})
 
   defp do_execute(%Sagax{queue: [], callbacks: []} = saga), do: %{saga | executed?: true}
@@ -42,7 +43,7 @@ defmodule Sagax.TaskExecuter do
     do: do_execute(%{saga | queue: [nested_saga | saga.queue]})
 
   defp handle_effect_result(result, %Sagax{queue: [op | ops]} = saga) do
-    case apply_op(saga, op, result) do
+    case Op.apply(saga, op, result) do
       %Sagax{} = saga ->
         do_execute(%{saga | queue: ops, stack: [op | saga.stack]})
 
@@ -113,16 +114,4 @@ defmodule Sagax.TaskExecuter do
   #               "in operation #{inspect(op)}"
   #   end
   # end
-
-  defp apply_op(%Sagax{value: value} = saga, op, {:ok, result}) when is_op(op, :put) do
-    key = Keyword.get(elem(op, 1), :key)
-    %{saga | value: Map.put(value || %{}, key, result)}
-  end
-
-  defp apply_op(%Sagax{} = saga, op, _) when is_op(op, :run), do: saga
-
-  defp apply_op(_saga, op, _) do
-    message = "Unexpected result of effect in operation #{inspect(op)}"
-    %RuntimeError{message: message}
-  end
 end
