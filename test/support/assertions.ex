@@ -18,7 +18,7 @@ defmodule Sagax.Test.Assertions do
     quote bind_quoted: [log: log, entries: entries] do
       logs = Log.all(log)
 
-      assert Log.size(logs) == Log.size(logs),
+      assert Log.size(logs) == Log.size(entries),
         message: "Expected #{Log.size(logs)} log entries but got #{Log.size(entries)}",
         left: logs,
         right: entries

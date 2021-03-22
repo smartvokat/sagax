@@ -19,4 +19,9 @@ defmodule Sagax.Test.Log do
     Agent.update(log, fn state -> [entry | state] end)
     entry
   end
+
+  def add(log, entry, return_value \\ nil) do
+    Agent.update(log, fn state -> [entry | state] end)
+    return_value
+  end
 end
