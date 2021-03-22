@@ -1,7 +1,6 @@
 defmodule Sagax do
   @moduledoc """
-  This is the next iteration of Sagax with an improved API. We use a different
-  module to explore ideas and keep legacy code running.
+  A saga.
   """
   alias __MODULE__
 
