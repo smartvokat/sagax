@@ -61,14 +61,4 @@ defmodule Sagax.Next.Op do
   def new_run_op(saga_id, effect, comp \\ :noop),
     do: op(id: Utils.new_id(), type: :run, effect: effect, comp: comp, saga_id: saga_id)
 
-  @doc """
-  TODO
-  """
-  def new_finalize_op(saga), do: op(id: Utils.new_id(), type: :finalize, opts: [id: saga.id])
-
-  @doc """
-  TODO
-  """
-  def new_init_op(saga_id),
-    do: op(id: saga_id, type: :init)
 end
