@@ -40,6 +40,7 @@ defmodule Sagax.Next.Executer do
 
         %Sagax{} ->
           effect
+
         true ->
           nil
       end
@@ -123,8 +124,8 @@ defmodule Sagax.Next.Executer do
 
       true ->
         raise ArgumentError,
-        "Expected a function with arity 0, 1, 2 or 3 in effect " <>
-          "#{inspect(effect)}"
+              "Expected a function with arity 0, 1, 2 or 3 in effect " <>
+                "#{inspect(effect)}"
     end
   end
 

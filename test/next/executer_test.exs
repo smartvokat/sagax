@@ -86,6 +86,37 @@ defmodule Sagax.Next.ExecuterTest do
       assert_log l, ["a", "b"]
       assert value == %{"a" => "a", "b" => %{"c1" => "c1", "c2" => "c2"}, "f" => %{"d" => "d"}}
     end
+
+    test "halts execution when a step returns :halt", %{log: log} do
+      saga =
+        Sagax.new()
+        |> Sagax.put("a", fn -> {:ok, "a"} end, fn -> Log.add(log, "a.comp") end)
+        |> Sagax.put("b", fn -> {:halt, "HALT!"} end)
+
+      assert %Sagax{state: :ok, value: value} = Executer.execute(saga)
+      assert value == %{"a" => "a", "b" => "HALT!"}
+      assert_log log, []
+    end
+
+    test "halts execution of the nested saga only when nested saga's step returns :halt", %{
+      log: log
+    } do
+      nested_saga =
+        Sagax.new()
+        |> Sagax.put("c", fn -> {:ok, "c"} end, fn -> Log.add(log, "c.comp") end)
+        |> Sagax.put("d", fn -> {:halt, "nested HALT!"} end, fn -> Log.add(log, "d.comp") end)
+        |> Sagax.put("e", fn -> {:ok, "e"} end, fn -> Log.add(log, "e.comp") end)
+
+      saga =
+        Sagax.new()
+        |> Sagax.put("a", fn -> {:ok, "a"} end, fn -> Log.add(log, "a") end)
+        |> Sagax.put("b", nested_saga)
+        |> Sagax.put("f", fn -> {:ok, "f"} end)
+
+      assert %Sagax{state: :ok, value: value} = Executer.execute(saga)
+      assert value == %{"a" => "a", "b" => %{"c" => "c", "d" => "nested HALT!"}, "f" => "f"}
+      assert_log log, []
+    end
   end
 
   describe "compensate()" do
@@ -131,7 +162,6 @@ defmodule Sagax.Next.ExecuterTest do
         |> Sagax.put("a", fn -> {:ok, "a"} end)
         |> Sagax.run(nested_saga)
         |> Sagax.put("d", fn -> {:error, "d"} end, fn -> Log.add(log, "d.comp") end)
-
 
       assert %Sagax{state: :error, value: value} = Executer.execute(saga)
       assert value == %{"a" => "a", "d" => "d", "b" => "b", "c" => "c"}
