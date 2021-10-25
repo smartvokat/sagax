@@ -1,10 +1,13 @@
 defmodule Sagax.NextTest do
   alias Sagax.Next, as: Sagax
-  alias Sagax.Op
+  alias Sagax.{Executer, Op, TestRepo}
+  alias Sagax.Test.Log
 
   require Sagax.Op
 
   use ExUnit.Case
+
+  import Sagax.Test.Assertions
 
   describe "new()" do
     test "initializes without args" do
@@ -32,6 +35,61 @@ defmodule Sagax.NextTest do
       assert Op.op(Enum.at(saga.ops, 0), :type) == :run
       assert Op.op(Enum.at(saga.ops, 0), :effect) == effect
       assert Op.op(Enum.at(saga.ops, 0), :comp) == comp
+    end
+  end
+
+  describe "transaction/2" do
+    setup do
+      {:ok, log} = Log.start_link([])
+      %{log: log}
+    end
+
+    test "executes the saga in a transaction" do
+      saga =
+        Sagax.new()
+        |> Sagax.run(fn -> {:ok, "value"} end)
+        |> Sagax.transaction(TestRepo)
+
+      %Sagax{state: :ok, value: %{}} = Executer.execute(saga)
+
+      assert_receive {:transaction, _fun, []}
+    end
+
+    test "accepts transaction options" do
+      saga =
+        Sagax.new()
+        |> Sagax.run(fn -> {:ok, "value"} end)
+        |> Sagax.transaction(TestRepo, timeout: 1000)
+
+      %Sagax{state: :ok, value: %{}} = Executer.execute(saga)
+
+      assert_receive {:transaction, _fun, timeout: 1000}
+    end
+
+    test "rollbacks transaction on errors" do
+      saga =
+        Sagax.new()
+        |> Sagax.run(fn -> {:error, "rollback!"} end)
+        |> Sagax.transaction(TestRepo)
+
+      %Sagax{state: :error, value: %{}} = Executer.execute(saga)
+      assert_receive {:transaction, _fun, []}
+      assert_receive {:rollback, _state}
+    end
+
+    test "runs compensations when error is occured", %{log: log} do
+      saga =
+        Sagax.new()
+        |> Sagax.put("a", fn -> {:ok, "a"} end, fn -> Log.add(log, "a.comp") end)
+        |> Sagax.put("b", fn -> {:error, "b"} end, fn -> Log.add(log, "b.comp") end)
+        |> Sagax.transaction(TestRepo)
+
+      %Sagax{state: :error, value: value} = Executer.execute(saga)
+      assert value == %{"a" => "a", "b" => "b"}
+      assert_log log, ["b.comp", "a.comp"]
+
+      assert_receive {:transaction, _fun, []}
+      assert_receive {:rollback, _state}
     end
   end
 end
