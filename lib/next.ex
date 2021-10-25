@@ -76,11 +76,9 @@ defmodule Sagax.Next do
     opts =
       Keyword.merge(
         saga.opts,
-        [
-          repo: repo,
-          execute_in_transaction: true,
-          transaction_opts: transaction_opts
-        ]
+        repo: repo,
+        execute_in_transaction: true,
+        transaction_opts: transaction_opts
       )
 
     %{saga | opts: opts}

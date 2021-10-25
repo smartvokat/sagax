@@ -146,6 +146,7 @@ defmodule Sagax.Next.Executer do
       case do_execute(state) do
         %State{execution: :error} = state ->
           repo.rollback(state)
+
         state ->
           state
       end
@@ -154,6 +155,7 @@ defmodule Sagax.Next.Executer do
     |> case do
       {:ok, {:error, state}} ->
         state
+
       {:ok, %State{} = state} ->
         state
     end
