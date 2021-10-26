@@ -92,6 +92,7 @@ defmodule Sagax.Next.ExecuterTest do
         Sagax.new()
         |> Sagax.put("a", fn -> {:ok, "a"} end, fn -> Log.add(log, "a.comp") end)
         |> Sagax.put("b", fn -> {:halt, "HALT!"} end)
+        |> Sagax.put("c", fn -> {:ok, "c"} end)
 
       assert %Sagax{state: :ok, value: value} = Executer.execute(saga)
       assert value == %{"a" => "a", "b" => "HALT!"}
