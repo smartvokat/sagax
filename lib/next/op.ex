@@ -60,5 +60,4 @@ defmodule Sagax.Next.Op do
   @spec new_run_op(binary(), effect(), compensation()) :: Op.t()
   def new_run_op(saga_id, effect, comp \\ :noop),
     do: op(id: Utils.new_id(), type: :run, effect: effect, comp: comp, saga_id: saga_id)
-
 end
