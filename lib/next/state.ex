@@ -21,7 +21,7 @@ defmodule Sagax.Next.State do
     # We keep the reference to the saga to access `args` and `context`. To make
     # debugging a bit easier we clean the saga since all the important info is now
     # stored in `state`.
-    sagas = Map.put(%{}, saga.id, %{saga | ops: []})
+    sagas = Map.put(%{}, saga.id, saga)
 
     # We will maintain a `value` per saga.
     values = Map.put(%{}, saga.id, saga.value)
