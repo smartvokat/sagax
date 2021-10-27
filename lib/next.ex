@@ -45,6 +45,14 @@ defmodule Sagax.Next do
       )
 
   @doc """
+  Calls Executer to execute the given Saga.
+  """
+  @spec execute(Sagax.t()) :: Sagax.t()
+  def execute(%Sagax{} = saga) do
+    Sagax.Executer.execute(saga)
+  end
+
+  @doc """
   Puts the result of `effect` under `key` in the result of the saga.
   """
   @spec put(Sagax.t(), atom(), Sagax.Op.effect(), Sagax.Op.compensation()) :: Sagax.t()
