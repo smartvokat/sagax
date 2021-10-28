@@ -13,14 +13,14 @@ defmodule Sagax.Next.State do
             suspended: [],
             values: %{},
             sagas: %{},
-            opts: %{},
+            # Helps to track operation keys in order to put the value into right place
+            # in case of nested sagas.
+            ops_keys: %{},
             execution: :ok
 
   @spec new(Sagax.t()) :: any
   def new(%Sagax{} = saga) do
-    # We keep the reference to the saga to access `args` and `context`. To make
-    # debugging a bit easier we clean the saga since all the important info is now
-    # stored in `state`.
+    # We keep the reference to the saga to access `args` and `context`.
     sagas = Map.put(%{}, saga.id, saga)
 
     # We will maintain a `value` per saga.
@@ -33,17 +33,14 @@ defmodule Sagax.Next.State do
   Applies the result of an operation depending on the operation type.
   """
   def apply(%State{} = state, operation, %Sagax{} = saga) when is_op(operation, :put) do
-    # We keep the reference to the saga to access `args` and `context`. To make
-    # debugging a bit easier we clean the saga since all the important info is now
-    # stored in `state`.
     sagas = Map.put(state.sagas, saga.id, saga)
 
     # We will maintain a `value` per saga.
     key = Keyword.get(op(operation, :opts), :key)
     values = Map.put(state.values, saga.id, %{key => saga.value})
 
-    opts =
-      Enum.reduce(saga.ops, state.opts, fn op, acc ->
+    ops_keys =
+      Enum.reduce(saga.ops, state.ops_keys, fn op, acc ->
         Map.update(acc, op(op, :id), [key], &[key | &1])
       end)
 
@@ -52,7 +49,7 @@ defmodule Sagax.Next.State do
       | next: Enum.reverse(saga.ops) ++ state.next,
         values: values,
         sagas: sagas,
-        opts: opts
+        ops_keys: ops_keys
     }
   end
 
@@ -60,7 +57,7 @@ defmodule Sagax.Next.State do
       when is_op(operation, :put) do
     key = Keyword.get(op(operation, :opts), :key)
     saga_id = op(operation, :saga_id)
-    outer_key = state.opts[op(operation, :id)]
+    outer_key = state.ops_keys[op(operation, :id)]
 
     value = Map.get(values, saga_id, %{}) || %{}
 
@@ -87,7 +84,7 @@ defmodule Sagax.Next.State do
       when is_op(operation, :put) do
     key = Keyword.get(op(operation, :opts), :key)
     saga_id = op(operation, :saga_id)
-    outer_key = state.opts[op(operation, :id)]
+    outer_key = state.ops_keys[op(operation, :id)]
 
     value = Map.get(values, saga_id, %{}) || %{}
 
@@ -122,7 +119,7 @@ defmodule Sagax.Next.State do
       when is_op(operation, :put) do
     key = Keyword.get(op(operation, :opts), :key)
     saga_id = op(operation, :saga_id)
-    outer_key = state.opts[op(operation, :id)]
+    outer_key = state.ops_keys[op(operation, :id)]
     value = Map.get(values, saga_id, %{}) || %{}
 
     value =

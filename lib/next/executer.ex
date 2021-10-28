@@ -11,7 +11,7 @@ defmodule Sagax.Next.Executer do
     state =
       saga
       |> State.new()
-      |> do_execute()
+      |> execute_state(saga.opts)
 
     values =
       Enum.reduce(state.values, %{}, fn {_saga_id, saga_values}, acc ->
@@ -126,6 +126,38 @@ defmodule Sagax.Next.Executer do
         raise ArgumentError,
               "Expected a function with arity 0, 1, 2 or 3 in effect " <>
                 "#{inspect(effect)}"
+    end
+  end
+
+  defp execute_state(state, saga_opts) do
+    if saga_opts[:execute_in_transaction] do
+      # TODO validate options here, i.e. repo must be provided here.
+      repo = saga_opts[:repo]
+      transaction_opts = saga_opts[:transaction_opts]
+
+      execute_in_transaction(state, repo, transaction_opts)
+    else
+      do_execute(state)
+    end
+  end
+
+  defp execute_in_transaction(state, repo, transaction_opts) do
+    fn ->
+      case do_execute(state) do
+        %State{execution: :error} = state ->
+          repo.rollback(state)
+
+        state ->
+          state
+      end
+    end
+    |> repo.transaction(transaction_opts)
+    |> case do
+      {:ok, {:error, state}} ->
+        state
+
+      {:ok, %State{} = state} ->
+        state
     end
   end
 

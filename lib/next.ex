@@ -71,4 +71,16 @@ defmodule Sagax.Next do
 
     %{saga | ops: [op | saga.ops]}
   end
+
+  def transaction(%Sagax{} = saga, repo, transaction_opts \\ []) do
+    opts =
+      Keyword.merge(
+        saga.opts,
+        repo: repo,
+        execute_in_transaction: true,
+        transaction_opts: transaction_opts
+      )
+
+    %{saga | opts: opts}
+  end
 end
