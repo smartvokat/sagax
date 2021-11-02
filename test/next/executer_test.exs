@@ -1,6 +1,6 @@
 defmodule Sagax.Next.ExecuterTest do
   alias Sagax.Next, as: Sagax
-  alias Sagax.Executer
+  alias Sagax.{Error, Executer}
   alias Sagax.Test.Log
 
   import Sagax.Test.Assertions
@@ -50,7 +50,7 @@ defmodule Sagax.Next.ExecuterTest do
     test "execute correctly" do
       saga = Sagax.put(Sagax.new(), :hello, fn -> {:ok, :world} end)
 
-      assert %Sagax{value: value} = Executer.execute(saga)
+      assert {:ok, %Sagax{value: value}} = Executer.execute(saga)
       assert value == %{hello: :world}
     end
 
@@ -61,7 +61,7 @@ defmodule Sagax.Next.ExecuterTest do
         |> Sagax.put("b", fn -> Log.add(l, "b", {:ok, "b"}) end)
         |> Sagax.put("c", fn -> Log.add(l, "c", {:ok, "c"}) end)
 
-      assert %Sagax{state: :ok, value: value} = Executer.execute(saga)
+      assert {:ok, %Sagax{state: :ok, value: value}} = Executer.execute(saga)
       assert value == %{"a" => "a", "b" => "b", "c" => "c"}
       assert_log l, ["a", "b", "c"]
     end
@@ -82,7 +82,7 @@ defmodule Sagax.Next.ExecuterTest do
         |> Sagax.put("b", fn -> Log.add(l, "b", nested_saga_1) end)
         |> Sagax.put("f", nested_saga_2)
 
-      assert %Sagax{state: :ok, value: value} = Executer.execute(saga)
+      assert {:ok, %Sagax{state: :ok, value: value}} = Executer.execute(saga)
       assert_log l, ["a", "b"]
       assert value == %{"a" => "a", "b" => %{"c1" => "c1", "c2" => "c2"}, "f" => %{"d" => "d"}}
     end
@@ -94,7 +94,7 @@ defmodule Sagax.Next.ExecuterTest do
         |> Sagax.put("b", fn -> {:halt, "HALT!"} end)
         |> Sagax.put("c", fn -> {:ok, "c"} end)
 
-      assert %Sagax{state: :ok, value: value} = Executer.execute(saga)
+      assert {:ok, %Sagax{state: :ok, value: value}} = Executer.execute(saga)
       assert value == %{"a" => "a", "b" => "HALT!"}
       assert_log log, []
     end
@@ -114,7 +114,7 @@ defmodule Sagax.Next.ExecuterTest do
         |> Sagax.put("b", nested_saga)
         |> Sagax.put("f", fn -> {:ok, "f"} end)
 
-      assert %Sagax{state: :ok, value: value} = Executer.execute(saga)
+      assert {:ok, %Sagax{state: :ok, value: value}} = Executer.execute(saga)
       assert value == %{"a" => "a", "b" => %{"c" => "c", "d" => "nested HALT!"}, "f" => "f"}
       assert_log log, []
     end
@@ -128,8 +128,7 @@ defmodule Sagax.Next.ExecuterTest do
         |> Sagax.put("b", assert_value_effect(%{"a" => "a"}, {:ok, "b"}))
         |> Sagax.put("c", fn -> {:error, "Something went wrong"} end)
 
-      assert %Sagax{state: :error, value: value} = Executer.execute(saga)
-      assert value == %{"a" => "a", "b" => "b", "c" => "Something went wrong"}
+      assert {:error, [%Error{path: "c", error: "Something went wrong"}]} = Executer.execute(saga)
     end
 
     test "compensates a simple saga", %{log: log} do
@@ -137,8 +136,7 @@ defmodule Sagax.Next.ExecuterTest do
         Sagax.new()
         |> Sagax.put("a", fn -> {:error, "a"} end, fn -> Log.add(log, "a.comp", {:ok, "a"}) end)
 
-      assert %Sagax{state: :error, value: value} = Executer.execute(saga)
-      assert value == %{"a" => "a"}
+      assert {:error, [%Error{path: "a", error: "a"}]} = Executer.execute(saga)
       assert_log log, ["a.comp"]
     end
 
@@ -147,8 +145,7 @@ defmodule Sagax.Next.ExecuterTest do
         Sagax.new()
         |> Sagax.run(fn -> {:error, "blah"} end, fn -> Log.add(log, "a.comp", {:ok, "a"}) end)
 
-      assert %Sagax{state: :error, value: value} = Executer.execute(saga)
-      assert value == %{}
+      assert {:error, [%Error{error: "blah"}]} = Executer.execute(saga)
       assert_log log, ["a.comp"]
     end
 
@@ -162,11 +159,12 @@ defmodule Sagax.Next.ExecuterTest do
         Sagax.new()
         |> Sagax.put("a", fn -> {:ok, "a"} end)
         |> Sagax.run(nested_saga)
-        |> Sagax.put("d", fn -> {:error, "d"} end, fn -> Log.add(log, "d.comp") end)
+        |> Sagax.put("d", fn -> {:error, "d"} end, fn -> {:error, "comp failed"} end)
 
-      assert %Sagax{state: :error, value: value} = Executer.execute(saga)
-      assert value == %{"a" => "a", "d" => "d", "b" => "b", "c" => "c"}
-      assert_log log, ["d.comp", "c.comp", "b.comp"]
+      assert {:error, [%Error{path: "d", error: "comp failed"}, %Error{path: "d", error: "d"}]} =
+               Executer.execute(saga)
+
+      assert_log log, ["c.comp", "b.comp"]
     end
   end
 end
