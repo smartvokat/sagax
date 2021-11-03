@@ -1,6 +1,6 @@
 defmodule Sagax.NextTest do
   alias Sagax.Next, as: Sagax
-  alias Sagax.{Error, Executer, Op, TestRepo}
+  alias Sagax.{Executer, Op, TestRepo}
   alias Sagax.Test.Log
 
   require Sagax.Op
@@ -50,7 +50,7 @@ defmodule Sagax.NextTest do
         |> Sagax.run(fn -> {:ok, "value"} end)
         |> Sagax.transaction(TestRepo)
 
-      {:ok, %Sagax{state: :ok, value: %{}}} = Executer.execute(saga)
+      %Sagax{state: :ok, value: %{}} = Executer.execute(saga)
 
       assert_receive {:transaction, _fun, []}
     end
@@ -61,7 +61,7 @@ defmodule Sagax.NextTest do
         |> Sagax.run(fn -> {:ok, "value"} end)
         |> Sagax.transaction(TestRepo, timeout: 1000)
 
-      {:ok, %Sagax{state: :ok, value: %{}}} = Executer.execute(saga)
+      %Sagax{state: :ok, value: %{}} = Executer.execute(saga)
 
       assert_receive {:transaction, _fun, timeout: 1000}
     end
@@ -72,7 +72,7 @@ defmodule Sagax.NextTest do
         |> Sagax.run(fn -> {:error, "rollback!"} end)
         |> Sagax.transaction(TestRepo)
 
-      {:error, _errors} = Executer.execute(saga)
+      %Sagax{state: :error, value: %{}} = Executer.execute(saga)
       assert_receive {:transaction, _fun, []}
       assert_receive {:rollback, _state}
     end
@@ -84,7 +84,9 @@ defmodule Sagax.NextTest do
         |> Sagax.put("b", fn -> {:error, "b"} end, fn -> Log.add(log, "b.comp") end)
         |> Sagax.transaction(TestRepo)
 
-      {:error, [%Error{path: "b", error: "b"}]} = Executer.execute(saga)
+      %Sagax{state: :error, value: value} = Executer.execute(saga)
+
+      assert value == %{"a" => "a", "b" => "b"}
       assert_log log, ["b.comp", "a.comp"]
 
       assert_receive {:transaction, _fun, []}

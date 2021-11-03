@@ -15,13 +15,7 @@ defmodule Sagax.Next.Executer do
 
     values = extract_values(state.values)
 
-    if state.execution == :ok do
-      saga = %{saga | value: values, state: state.execution}
-
-      {:ok, saga}
-    else
-      {:error, state.errors}
-    end
+    %{saga | value: values, errors: state.errors, state: state.execution}
   end
 
   defp do_execute(%State{next: []} = state), do: state

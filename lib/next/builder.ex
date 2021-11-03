@@ -8,9 +8,16 @@ defmodule Sagax.Next.Builder do
       """
       @spec execute(map(), map(), Keyword.t()) :: {:ok, any()} | {:error, [Sagax.Next.Error.t()]}
       def execute(args, context, opts \\ []) do
-        args
-        |> new(context, opts)
-        |> Sagax.execute()
+        saga =
+          args
+          |> new(context, opts)
+          |> Sagax.execute()
+
+        if Enum.any?(saga.errors) do
+          {:error, saga.errors}
+        else
+          {:ok, saga}
+        end
       end
     end
   end
