@@ -47,7 +47,7 @@ defmodule Sagax.Next do
   @doc """
   Calls Executer to execute the given Saga.
   """
-  @spec execute(map(), map(), Keyword.t()) :: {:ok, any()} | {:error, [Sagax.Next.Error.t()]
+  @spec execute(Sagax.t()) :: {:ok, any()} | {:error, [Sagax.Next.Error.t()]}
   def execute(%Sagax{} = saga) do
     Sagax.Executer.execute(saga)
   end

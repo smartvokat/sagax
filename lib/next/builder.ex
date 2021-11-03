@@ -6,7 +6,7 @@ defmodule Sagax.Next.Builder do
       @doc """
       Initiates and executes the saga with the given `args` and `context`.
       """
-      @spec execute(map(), map(), Keyword.t()) :: {:ok, any()} | {:error, [Sagax.Next.Error.t()]
+      @spec execute(map(), map(), Keyword.t()) :: {:ok, any()} | {:error, [Sagax.Next.Error.t()]}
       def execute(args, context, opts \\ []) do
         args
         |> new(context, opts)
