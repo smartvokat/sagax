@@ -1,5 +1,6 @@
 defmodule Sagax.Next.Test.Log do
   use Agent
+
   def start_link(_opts), do: Agent.start_link(fn -> [] end)
 
   def all(log), do: log |> Agent.get(& &1) |> Enum.reverse()

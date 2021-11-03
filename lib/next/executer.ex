@@ -13,16 +13,9 @@ defmodule Sagax.Next.Executer do
       |> State.new()
       |> execute_state(saga.opts)
 
-    values =
-      Enum.reduce(state.values, %{}, fn {_saga_id, saga_values}, acc ->
-        if saga_values do
-          Map.merge(acc, saga_values)
-        else
-          acc
-        end
-      end)
+    values = extract_values(state.values)
 
-    %{saga | value: values, state: state.execution}
+    %{saga | value: values, errors: state.errors, state: state.execution}
   end
 
   defp do_execute(%State{next: []} = state), do: state
@@ -74,15 +67,19 @@ defmodule Sagax.Next.Executer do
     value = Map.get(state.values, saga_id)
     comp = op(operation, :comp)
 
-    cond do
-      is_function(comp) ->
-        safe_apply(comp, value, saga)
+    comp_result =
+      cond do
+        is_function(comp) ->
+          safe_apply(comp, value, saga)
 
-      true ->
-        nil
-    end
+        true ->
+          nil
+      end
 
-    do_compensate(%{state | executed: executed})
+    state = %{state | executed: executed}
+    state = State.apply(state, operation, comp_result)
+
+    do_compensate(state)
   end
 
   defp safe_apply(func, value, saga) do
@@ -159,6 +156,16 @@ defmodule Sagax.Next.Executer do
       {:ok, %State{} = state} ->
         state
     end
+  end
+
+  defp extract_values(values) do
+    Enum.reduce(values, %{}, fn {_saga_id, saga_values}, acc ->
+      if saga_values do
+        Map.merge(acc, saga_values)
+      else
+        acc
+      end
+    end)
   end
 
   defp task_module do

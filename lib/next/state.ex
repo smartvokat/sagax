@@ -4,7 +4,7 @@ defmodule Sagax.Next.State do
   """
 
   alias Sagax.Next, as: Sagax
-  alias Sagax.State
+  alias Sagax.{State, Error}
 
   import Sagax.Op
 
@@ -12,6 +12,7 @@ defmodule Sagax.Next.State do
             executed: [],
             suspended: [],
             values: %{},
+            errors: [],
             sagas: %{},
             # Helps to track operation keys in order to put the value into right place
             # in case of nested sagas.
@@ -60,22 +61,7 @@ defmodule Sagax.Next.State do
     outer_key = state.ops_keys[op(operation, :id)]
 
     value = Map.get(values, saga_id, %{}) || %{}
-
-    value =
-      if outer_key do
-        {_, value} =
-          get_and_update_in(value, outer_key, fn existing_value ->
-            if existing_value do
-              {existing_value, Map.put(existing_value, key, result)}
-            else
-              {existing_value, %{key => result}}
-            end
-          end)
-
-        value
-      else
-        Map.put(value, key, result)
-      end
+    value = update_value(value, outer_key, key, result)
 
     %{state | values: Map.put(values, saga_id, value)}
   end
@@ -87,22 +73,7 @@ defmodule Sagax.Next.State do
     outer_key = state.ops_keys[op(operation, :id)]
 
     value = Map.get(values, saga_id, %{}) || %{}
-
-    value =
-      if outer_key do
-        {_, value} =
-          get_and_update_in(value, outer_key, fn existing_value ->
-            if existing_value do
-              {existing_value, Map.put(existing_value, key, result)}
-            else
-              {existing_value, %{key => result}}
-            end
-          end)
-
-        value
-      else
-        Map.put(value, key, result)
-      end
+    value = update_value(value, outer_key, key, result)
 
     saga = state.sagas[saga_id]
     saga_op_ids = Enum.map(saga.ops, &op(&1, :id))
@@ -115,34 +86,21 @@ defmodule Sagax.Next.State do
     %{state | values: Map.put(values, saga_id, value), next: next}
   end
 
-  def apply(%State{values: values} = state, operation, {:error, result})
+  def apply(%State{errors: errors} = state, operation, {:error, result})
       when is_op(operation, :put) do
     key = Keyword.get(op(operation, :opts), :key)
-    saga_id = op(operation, :saga_id)
     outer_key = state.ops_keys[op(operation, :id)]
-    value = Map.get(values, saga_id, %{}) || %{}
 
-    value =
-      if outer_key do
-        {_, value} =
-          get_and_update_in(value, outer_key, fn existing_value ->
-            if existing_value do
-              {existing_value, Map.put(existing_value, key, result)}
-            else
-              {existing_value, %{key => result}}
-            end
-          end)
+    errors = [%Error{path: outer_key || key, error: result} | errors]
 
-        value
-      else
-        Map.put(value, key, result)
-      end
-
-    %{state | values: Map.put(values, saga_id, value), execution: :error}
+    %{state | errors: errors, execution: :error}
   end
 
-  def apply(%State{} = state, operation, {:error, _result}) when is_op(operation, :run) do
-    %{state | execution: :error}
+  def apply(%State{errors: errors} = state, operation, {:error, result})
+      when is_op(operation, :run) do
+    errors = [%Error{error: result} | errors]
+
+    %{state | errors: errors, execution: :error}
   end
 
   def apply(%State{} = state, operation, %Sagax{} = saga) when is_op(operation, :run) do
@@ -153,8 +111,31 @@ defmodule Sagax.Next.State do
 
   def apply(%State{} = state, operation, _result) when is_op(operation, :run), do: state
 
+  # Iterating over compensations that have their result as nil, so we don't need to store
+  # the `result` to the `errors` list.
+  def apply(%State{execution: :error} = state, _operation, result) when is_nil(result) do
+    state
+  end
+
   def apply(_state, operation, result) do
     message = "Unexpected effect result for operation #{inspect(operation)}: #{inspect(result)}"
     %RuntimeError{message: message}
+  end
+
+  defp update_value(value, outer_key, key, result) when is_nil(outer_key) do
+    Map.put(value, key, result)
+  end
+
+  defp update_value(value, outer_key, key, result) do
+    {_, value} =
+      get_and_update_in(value, outer_key, fn existing_value ->
+        if existing_value do
+          {existing_value, Map.put(existing_value, key, result)}
+        else
+          {existing_value, %{key => result}}
+        end
+      end)
+
+    value
   end
 end
