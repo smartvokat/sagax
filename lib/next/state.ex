@@ -86,19 +86,14 @@ defmodule Sagax.Next.State do
     %{state | values: Map.put(values, saga_id, value), next: next}
   end
 
-  def apply(%State{values: values, errors: errors} = state, operation, {:error, result})
+  def apply(%State{errors: errors} = state, operation, {:error, result})
       when is_op(operation, :put) do
     key = Keyword.get(op(operation, :opts), :key)
-    saga_id = op(operation, :saga_id)
     outer_key = state.ops_keys[op(operation, :id)]
-
-    value = Map.get(values, saga_id, %{}) || %{}
-    value = update_value(value, outer_key, key, result)
-    values = Map.put(values, saga_id, value)
 
     errors = [%Error{path: outer_key || key, error: result} | errors]
 
-    %{state | values: values, errors: errors, execution: :error}
+    %{state | errors: errors, execution: :error}
   end
 
   def apply(%State{errors: errors} = state, operation, {:error, result})

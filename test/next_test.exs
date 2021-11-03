@@ -84,9 +84,10 @@ defmodule Sagax.NextTest do
         |> Sagax.put("b", fn -> {:error, "b"} end, fn -> Log.add(log, "b.comp") end)
         |> Sagax.transaction(TestRepo)
 
-      %Sagax{state: :error, value: value} = Executer.execute(saga)
+      %Sagax{state: :error, value: value, errors: errors} = Executer.execute(saga)
 
-      assert value == %{"a" => "a", "b" => "b"}
+      assert value == %{"a" => "a"}
+      assert errors === [%Sagax.Error{path: "b", error: "b"}]
       assert_log log, ["b.comp", "a.comp"]
 
       assert_receive {:transaction, _fun, []}
