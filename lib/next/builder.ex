@@ -14,9 +14,9 @@ defmodule Sagax.Next.Builder do
           |> Sagax.execute()
 
         if Enum.any?(saga.errors) do
-          {:error, saga.errors}
+          {:error, saga.errors, saga}
         else
-          {:ok, saga}
+          {:ok, saga.value, saga}
         end
       end
     end

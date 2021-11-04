@@ -5,8 +5,8 @@ defmodule Sagax.Next.BuilderTest do
   use ExUnit.Case
 
   test "executes a saga using Builder" do
-    {:ok, %Sagax{value: value}} = MockBuilder.execute(%{}, %{}, [])
+    {:ok, values, %Sagax{}} = MockBuilder.execute(%{}, %{}, [])
 
-    assert value == %{"a" => "a", "b" => "b"}
+    assert values == %{"a" => "a", "b" => "b"}
   end
 end
