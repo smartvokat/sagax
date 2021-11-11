@@ -118,6 +118,14 @@ defmodule Sagax.Next.ExecuterTest do
       assert value == %{"a" => "a", "b" => %{"c" => "c", "d" => "nested HALT!"}, "f" => "f"}
       assert_log log, []
     end
+
+    test "raises an error when step raises an exception" do
+      assert_raise(RuntimeError, "exception", fn ->
+        Sagax.new()
+        |> Sagax.run(fn -> raise "exception" end)
+        |> Sagax.execute()
+      end)
+    end
   end
 
   describe "compensate()" do
