@@ -153,6 +153,9 @@ defmodule Sagax.Next.Executer do
       {:ok, {:error, state}} ->
         state
 
+      {:error, state} ->
+        state
+
       {:ok, %State{} = state} ->
         state
     end
