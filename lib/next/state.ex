@@ -109,6 +109,10 @@ defmodule Sagax.Next.State do
     %{state | sagas: sagas, next: Enum.reverse(saga.ops) ++ state.next}
   end
 
+  def apply(_state, _operation, {:raise, {exception, stacktrace}}) do
+    reraise(exception, stacktrace)
+  end
+
   def apply(%State{} = state, operation, _result) when is_op(operation, :run), do: state
 
   # Iterating over compensations that have their result as nil, so we don't need to store
