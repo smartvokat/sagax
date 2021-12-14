@@ -220,7 +220,11 @@ defmodule Sagax.Executor do
     do: reraise(exception, stacktrace)
 
   # TODO: Implement this
-  defp handle_execute_result(_result, _saga), do: raise("Panic")
+  defp handle_execute_result(result, _saga) do
+    message = "Unexpected effect result: #{inspect(result)}"
+
+    raise RuntimeError, message
+  end
 
   defp handle_compensate_result(:ok, %{stack: [item | stack], results: results} = saga),
     do: %{saga | stack: stack, results: Map.delete(results, elem(item, 0))}
