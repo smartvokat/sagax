@@ -83,25 +83,11 @@ defmodule Sagax.Next.Executer do
   end
 
   defp safe_apply(func, value, saga) do
-    task =
-      fn ->
-        try do
-          apply_func(func, value, saga.args, saga.context)
-        rescue
-          exception ->
-            {:raise, {exception, __STACKTRACE__}}
-        end
-      end
-      |> task_module().async()
-
-    timeout = Keyword.get(saga.opts, :timeout, 5000)
-
-    case task_module().yield(task, timeout) || task_module().shutdown(task, timeout) do
-      {:ok, result} ->
-        result
-
-      nil ->
-        {:exit, :timeout}
+    try do
+      apply_func(func, value, saga.args, saga.context)
+    rescue
+      exception ->
+        {:raise, {exception, __STACKTRACE__}}
     end
   end
 
@@ -169,9 +155,5 @@ defmodule Sagax.Next.Executer do
         acc
       end
     end)
-  end
-
-  defp task_module do
-    Application.get_env(:sagax, :task_module, Task)
   end
 end
