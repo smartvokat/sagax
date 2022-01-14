@@ -78,7 +78,7 @@ defmodule Sagax.Next.ExecuterTest do
       assert value == %{hello: "hello"}
     end
 
-    test "halts saga when run step halts without meta" do
+    test "halts saga when run step halts without context" do
       saga =
         Sagax.new()
         |> Sagax.put(:hello, fn -> {:ok, "hello", %{some: "meta"}} end)

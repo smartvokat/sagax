@@ -14,10 +14,10 @@ defmodule Sagax.Next.BuilderTest do
       end
     end
 
-    {:ok, values, meta} = OkSaga.execute(%{}, %{}, [])
+    {:ok, values, context} = OkSaga.execute(%{}, %{}, [])
 
     assert values == %{"a" => "a", "b" => "b"}
-    assert meta == %{}
+    assert context == %{}
   end
 
   test "executes a erroneous saga" do
@@ -33,10 +33,10 @@ defmodule Sagax.Next.BuilderTest do
       end
     end
 
-    {:error, errors, meta} = ErrorSaga.execute(%{}, %{}, [])
+    {:error, errors, context} = ErrorSaga.execute(%{}, %{}, [])
 
     assert [%Sagax.Next.Error{error: "b", path: "b"}] = errors
-    assert meta == %{}
+    assert context == %{}
   end
 
   test "executes a halted saga" do
@@ -53,10 +53,10 @@ defmodule Sagax.Next.BuilderTest do
       end
     end
 
-    {:halt, values, meta} = HaltSaga.execute(%{}, %{}, [])
+    {:halt, values, context} = HaltSaga.execute(%{}, %{}, [])
 
     assert values == %{"a" => "a", "b" => "b"}
-    assert meta == %{}
+    assert context == %{}
   end
 
   test "returns context as 3rd tuple element" do
@@ -67,14 +67,14 @@ defmodule Sagax.Next.BuilderTest do
 
       defp new(args, context, opts) do
         Sagax.new(args: args, context: context, opts: opts)
-        |> Sagax.put("a", fn -> {:ok, "a", %{some: "meta"}} end)
-        |> Sagax.put("b", fn -> {:ok, "b", %{more: "meta"}} end)
+        |> Sagax.put("a", fn -> {:ok, "a", %{some: "context"}} end)
+        |> Sagax.put("b", fn -> {:ok, "b", %{more: "context"}} end)
       end
     end
 
-    {:ok, values, meta} = MetaSaga.execute(%{}, %{ctx: %{my: "context"}}, [])
+    {:ok, values, context} = MetaSaga.execute(%{}, %{ctx: %{my: "context"}}, [])
 
     assert values == %{"a" => "a", "b" => "b"}
-    assert %{ctx: %{my: "context"}, some: "meta", more: "meta"} = meta
+    assert %{ctx: %{my: "context"}, some: "context", more: "context"} = context
   end
 end

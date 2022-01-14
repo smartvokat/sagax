@@ -17,8 +17,7 @@ defmodule Sagax.Next.State do
             # Helps to track operation keys in order to put the value into right place
             # in case of nested sagas.
             ops_keys: %{},
-            execution: :ok,
-            halt_reason: nil
+            execution: :ok
 
   @spec new(Sagax.t()) :: any
   def new(%Sagax{} = saga) do
@@ -55,12 +54,12 @@ defmodule Sagax.Next.State do
     }
   end
 
-  def apply(%State{values: values, sagas: sagas} = state, operation, {:ok, result, meta})
+  def apply(%State{values: values, sagas: sagas} = state, operation, {:ok, result, context})
       when is_op(operation, :put) do
     key = Keyword.get(op(operation, :opts), :key)
     saga_id = op(operation, :saga_id)
     saga = state.sagas[saga_id]
-    saga_context = Map.merge(saga.context || %{}, meta)
+    saga_context = Map.merge(saga.context || %{}, context)
     saga = Map.put(saga, :context, saga_context)
     sagas = Map.put(sagas, saga_id, saga)
     outer_key = state.ops_keys[op(operation, :id)]
@@ -83,12 +82,12 @@ defmodule Sagax.Next.State do
     %{state | values: Map.put(values, saga_id, value)}
   end
 
-  def apply(%State{values: values, sagas: sagas} = state, operation, {:halt, result, meta})
+  def apply(%State{values: values, sagas: sagas} = state, operation, {:halt, result, context})
       when is_op(operation, :put) do
     key = Keyword.get(op(operation, :opts), :key)
     saga_id = op(operation, :saga_id)
     saga = state.sagas[saga_id]
-    saga_context = Map.merge(saga.context || %{}, meta)
+    saga_context = Map.merge(saga.context || %{}, context)
     saga = Map.put(saga, :context, saga_context)
     sagas = Map.put(sagas, saga_id, saga)
 
@@ -138,11 +137,11 @@ defmodule Sagax.Next.State do
     %{state | errors: errors, execution: :error}
   end
 
-  def apply(%State{sagas: sagas} = state, operation, {:halt, _result, meta})
+  def apply(%State{sagas: sagas} = state, operation, {:halt, _result, context})
       when is_op(operation, :run) do
     saga_id = op(operation, :saga_id)
     saga = state.sagas[saga_id]
-    saga_context = Map.merge(saga.context || %{}, meta)
+    saga_context = Map.merge(saga.context || %{}, context)
     saga = Map.put(saga, :context, saga_context)
     sagas = Map.put(sagas, saga_id, saga)
     saga_op_ids = Enum.map(saga.ops, &op(&1, :id))
