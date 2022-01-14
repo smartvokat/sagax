@@ -54,6 +54,42 @@ defmodule Sagax.Next.ExecuterTest do
       assert value == %{hello: :world}
     end
 
+    test "stores 3rd tuple element into context" do
+      saga =
+        Sagax.new()
+        |> Sagax.put(:hello, fn -> {:ok, "hello", %{some: "meta"}} end)
+        |> Sagax.put(:world, fn -> {:halt, "world", %{other: "meta"}} end)
+        |> Sagax.put("c", fn -> {:ok, "c", %{another: "meta"}} end)
+
+      assert %Sagax{value: value, context: context, state: :halt} = Executer.execute(saga)
+      assert %{some: "meta", other: "meta"} = context
+      assert value == %{hello: "hello", world: "world"}
+    end
+
+    test "halts saga when run step halts" do
+      saga =
+        Sagax.new()
+        |> Sagax.put(:hello, fn -> {:ok, "hello", %{some: "meta"}} end)
+        |> Sagax.run(fn -> {:halt, "world", %{other: "meta"}} end)
+        |> Sagax.put("c", fn -> {:ok, "c", %{another: "meta"}} end)
+
+      assert %Sagax{value: value, context: context, state: :halt} = Executer.execute(saga)
+      assert %{some: "meta", other: "meta"} = context
+      assert value == %{hello: "hello"}
+    end
+
+    test "halts saga when run step halts without meta" do
+      saga =
+        Sagax.new()
+        |> Sagax.put(:hello, fn -> {:ok, "hello", %{some: "meta"}} end)
+        |> Sagax.run(fn -> {:halt, "world"} end)
+        |> Sagax.put("c", fn -> {:ok, "c", %{another: "meta"}} end)
+
+      assert %Sagax{value: value, context: context, state: :halt} = Executer.execute(saga)
+      assert %{some: "meta"} = context
+      assert value == %{hello: "hello"}
+    end
+
     test "execute serial effects", %{log: l} do
       saga =
         Sagax.new()
@@ -94,7 +130,7 @@ defmodule Sagax.Next.ExecuterTest do
         |> Sagax.put("b", fn -> {:halt, "HALT!"} end)
         |> Sagax.put("c", fn -> {:ok, "c"} end)
 
-      assert %Sagax{state: :ok, value: value} = Executer.execute(saga)
+      assert %Sagax{state: :halt, value: value} = Executer.execute(saga)
       assert value == %{"a" => "a", "b" => "HALT!"}
       assert_log log, []
     end
@@ -114,7 +150,7 @@ defmodule Sagax.Next.ExecuterTest do
         |> Sagax.put("b", nested_saga)
         |> Sagax.put("f", fn -> {:ok, "f"} end)
 
-      assert %Sagax{state: :ok, value: value} = Executer.execute(saga)
+      assert %Sagax{state: :halt, value: value} = Executer.execute(saga)
       assert value == %{"a" => "a", "b" => %{"c" => "c", "d" => "nested HALT!"}, "f" => "f"}
       assert_log log, []
     end

@@ -13,10 +13,12 @@ defmodule Sagax.Next.Builder do
           |> new(context, opts)
           |> Sagax.execute()
 
-        if Enum.any?(saga.errors) do
-          {:error, saga.errors, saga}
-        else
-          {:ok, saga.value, saga}
+        case saga.state do
+          :error ->
+            {:error, saga.errors, saga.context}
+
+          _ ->
+            {saga.state, saga.value, saga.context}
         end
       end
     end
