@@ -54,6 +54,22 @@ defmodule Sagax.Next.State do
     }
   end
 
+  def apply(%State{values: values, sagas: sagas} = state, operation, {:ok, result, context})
+      when is_op(operation, :put) do
+    key = Keyword.get(op(operation, :opts), :key)
+    saga_id = op(operation, :saga_id)
+    saga = state.sagas[saga_id]
+    saga_context = Map.merge(saga.context || %{}, context)
+    saga = Map.put(saga, :context, saga_context)
+    sagas = Map.put(sagas, saga_id, saga)
+    outer_key = state.ops_keys[op(operation, :id)]
+
+    value = Map.get(values, saga_id, %{}) || %{}
+    value = update_value(value, outer_key, key, result)
+
+    %{state | values: Map.put(values, saga_id, value), sagas: sagas}
+  end
+
   def apply(%State{values: values} = state, operation, {:ok, result})
       when is_op(operation, :put) do
     key = Keyword.get(op(operation, :opts), :key)
@@ -64,6 +80,31 @@ defmodule Sagax.Next.State do
     value = update_value(value, outer_key, key, result)
 
     %{state | values: Map.put(values, saga_id, value)}
+  end
+
+  def apply(%State{values: values, sagas: sagas} = state, operation, {:halt, result, context})
+      when is_op(operation, :put) do
+    key = Keyword.get(op(operation, :opts), :key)
+    saga_id = op(operation, :saga_id)
+    saga = state.sagas[saga_id]
+    saga_context = Map.merge(saga.context || %{}, context)
+    saga = Map.put(saga, :context, saga_context)
+    sagas = Map.put(sagas, saga_id, saga)
+
+    outer_key = state.ops_keys[op(operation, :id)]
+
+    value = Map.get(values, saga_id, %{}) || %{}
+    value = update_value(value, outer_key, key, result)
+
+    saga = state.sagas[saga_id]
+    saga_op_ids = Enum.map(saga.ops, &op(&1, :id))
+
+    next =
+      Enum.reject(state.next, fn op ->
+        Enum.member?(saga_op_ids, op(op, :id))
+      end)
+
+    %{state | values: Map.put(values, saga_id, value), next: next, sagas: sagas, execution: :halt}
   end
 
   def apply(%State{values: values} = state, operation, {:halt, result})
@@ -83,7 +124,7 @@ defmodule Sagax.Next.State do
         Enum.member?(saga_op_ids, op(op, :id))
       end)
 
-    %{state | values: Map.put(values, saga_id, value), next: next}
+    %{state | values: Map.put(values, saga_id, value), next: next, execution: :halt}
   end
 
   def apply(%State{errors: errors} = state, operation, {:error, result})
@@ -94,6 +135,37 @@ defmodule Sagax.Next.State do
     errors = [%Error{path: outer_key || key, error: result} | errors]
 
     %{state | errors: errors, execution: :error}
+  end
+
+  def apply(%State{sagas: sagas} = state, operation, {:halt, _result, context})
+      when is_op(operation, :run) do
+    saga_id = op(operation, :saga_id)
+    saga = state.sagas[saga_id]
+    saga_context = Map.merge(saga.context || %{}, context)
+    saga = Map.put(saga, :context, saga_context)
+    sagas = Map.put(sagas, saga_id, saga)
+    saga_op_ids = Enum.map(saga.ops, &op(&1, :id))
+
+    next =
+      Enum.reject(state.next, fn op ->
+        Enum.member?(saga_op_ids, op(op, :id))
+      end)
+
+    %{state | next: next, sagas: sagas, execution: :halt}
+  end
+
+  def apply(%State{} = state, operation, {:halt, _result})
+      when is_op(operation, :run) do
+    saga_id = op(operation, :saga_id)
+    saga = state.sagas[saga_id]
+    saga_op_ids = Enum.map(saga.ops, &op(&1, :id))
+
+    next =
+      Enum.reject(state.next, fn op ->
+        Enum.member?(saga_op_ids, op(op, :id))
+      end)
+
+    %{state | next: next, execution: :halt}
   end
 
   def apply(%State{errors: errors} = state, operation, {:error, result})

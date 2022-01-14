@@ -37,12 +37,12 @@ defmodule Sagax.Next do
   Creates a new saga.
   """
   @spec new(keyword()) :: Sagax.t()
-  def new(fields \\ []),
-    do:
-      struct!(
-        Sagax,
-        Keyword.merge([id: Utils.new_id()], fields)
-      )
+  def new(fields \\ []) do
+    struct!(
+      Sagax,
+      Keyword.merge([id: Utils.new_id()], fields)
+    )
+  end
 
   @doc """
   Calls Executer to execute the given Saga.

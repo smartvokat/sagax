@@ -15,7 +15,12 @@ defmodule Sagax.Next.Executer do
 
     values = extract_values(state.values)
 
-    %{saga | value: values, errors: state.errors, state: state.execution}
+    context =
+      Enum.reduce(state.sagas, %{}, fn {_, saga}, acc ->
+        Map.merge(acc, saga.context || %{})
+      end)
+
+    %{saga | value: values, errors: state.errors, state: state.execution, context: context}
   end
 
   defp do_execute(%State{next: []} = state), do: state
@@ -39,7 +44,7 @@ defmodule Sagax.Next.Executer do
       end
 
     case State.apply(%{state | next: next}, operation, result) do
-      %State{execution: :ok} = state ->
+      %State{execution: execution} = state when execution in [:ok, :halt] ->
         do_execute(%{state | executed: [operation | state.executed]})
 
       %State{execution: :error} = state ->
@@ -48,12 +53,6 @@ defmodule Sagax.Next.Executer do
         do_compensate(state)
     end
   end
-
-  # defp do_execute(%State{} = state, operation) when is_op(operation, :finalize) do
-  # end
-
-  # defp do_execute(%State{} = state, operation) when is_op(operation, :finalize) do
-  # end
 
   defp do_compensate(%State{executed: []} = state), do: state
 
