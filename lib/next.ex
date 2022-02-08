@@ -45,12 +45,10 @@ defmodule Sagax.Next do
   end
 
   @doc """
-  Calls Executer to execute the given Saga.
+  Calls the executer to execute the given saga.
   """
   @spec execute(Sagax.t()) :: Sagax.t()
-  def execute(%Sagax{} = saga) do
-    Sagax.Executer.execute(saga)
-  end
+  def execute(%Sagax{} = saga), do: Sagax.Executer.execute(saga)
 
   @doc """
   Puts the result of `effect` under `key` in the result of the saga.
@@ -60,13 +58,11 @@ defmodule Sagax.Next do
 
   def put(%Sagax{} = saga, key, %Sagax{} = nested_saga, comp) do
     op = Op.new_put_op(saga.id, key, nested_saga, comp)
-
     %{saga | ops: [op | saga.ops]}
   end
 
   def put(%Sagax{} = saga, key, effect, comp) do
     op = Op.new_put_op(saga.id, key, effect, comp)
-
     %{saga | ops: [op | saga.ops]}
   end
 
