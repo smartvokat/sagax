@@ -243,26 +243,11 @@ defmodule Sagax.Executor do
   defp handle_compensate_result(_, _), do: raise("Panic")
 
   defp safe_apply(func, args, opts, saga_opts) do
-    task =
-      fn ->
-        try do
-          apply(func, args ++ [Keyword.merge(saga_opts, opts)])
-        rescue
-          exception ->
-            {:raise, {exception, __STACKTRACE__}}
-        end
-      end
-      |> task_module().async()
-
-    timeout = Keyword.get(saga_opts, :timeout, 5000)
-    timeout = Keyword.get(opts, :timeout, timeout)
-
-    case task_module().yield(task, timeout) || task_module().shutdown(task, timeout) do
-      {:ok, result} ->
-        result
-
-      nil ->
-        {:exit, :timeout}
+    try do
+      apply(func, args ++ [Keyword.merge(saga_opts, opts)])
+    rescue
+      exception ->
+        {:raise, {exception, __STACKTRACE__}}
     end
   end
 
