@@ -72,8 +72,52 @@ defmodule Sagax.Next do
   @spec run(Sagax.t(), Sagax.Op.effect(), Sagax.Op.compensation()) :: Sagax.t()
   def run(%Sagax{} = saga, effect, comp \\ :noop) do
     op = Op.new_run_op(saga.id, effect, comp)
-
     %{saga | ops: [op | saga.ops]}
+  end
+
+  @doc """
+  Adds the effects from `composer` only if `condition` evaluates to `true`.
+
+  ## Examples
+
+    iex> args = %{foo: :bar}
+    iex> Sagax.new()
+    ...> |> Sagax.run(fn _, _, _ -> :ok end)
+    ...> |> Sagax.compose_if(Map.has_key?(args, :foo), fn saga ->
+    ...>   Sagax.put(saga, :baz, fn _, _, _ -> {:ok, :xyz} end)
+    ...> end)
+    ...> |> Sagax.execute()
+
+  """
+  @spec compose_if(
+          Sagax.Next.t(),
+          boolean() | (() -> boolean()),
+          (Sagax.Next.t() -> Sagax.Next.t())
+        ) :: Sagax.Next.t()
+  def compose_if(%Sagax{} = saga, condition, composer) do
+    should_compose =
+      cond do
+        is_boolean(condition) ->
+          condition
+
+        is_function(condition) ->
+          result = condition.()
+
+          if is_boolean(result) do
+            result
+          else
+            raise ArgumentError, "Expected condition to return a boolean value"
+          end
+
+        true ->
+          raise ArgumentError, "Expected condition to be a boolean or function"
+      end
+
+    if should_compose do
+      composer.(saga)
+    else
+      saga
+    end
   end
 
   def transaction(%Sagax{} = saga, repo, transaction_opts \\ []) do

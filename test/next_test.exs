@@ -9,6 +9,8 @@ defmodule Sagax.NextTest do
 
   import Sagax.Test.Assertions
 
+  doctest Sagax
+
   describe "new()" do
     test "initializes without args" do
       assert saga = Sagax.new()
@@ -35,6 +37,50 @@ defmodule Sagax.NextTest do
       assert Op.op(Enum.at(saga.ops, 0), :type) == :run
       assert Op.op(Enum.at(saga.ops, 0), :effect) == effect
       assert Op.op(Enum.at(saga.ops, 0), :comp) == comp
+    end
+  end
+
+  describe "compose_if/3" do
+    test "handles boolean conditions correctly" do
+      saga_1 =
+        Sagax.compose_if(Sagax.new(), true, fn saga ->
+          Sagax.put(saga, :hello, fn _, _, _ -> {:ok, :world} end)
+        end)
+
+      saga_2 =
+        Sagax.compose_if(Sagax.new(), false, fn saga ->
+          Sagax.put(saga, :hello, fn _, _, _ -> {:ok, :world} end)
+        end)
+
+      assert %{hello: :world} = Sagax.execute(saga_1).value
+      assert %{} = Sagax.execute(saga_2).value
+    end
+
+    test "handles functional conditions correctly" do
+      saga =
+        Sagax.compose_if(Sagax.new(), fn -> true end, fn saga ->
+          Sagax.put(saga, :hello, fn _, _, _ -> {:ok, :world} end)
+        end)
+
+      assert %{hello: :world} = Sagax.execute(saga).value
+    end
+
+    test "raises when condition is not valid" do
+      assert_raise ArgumentError, "Expected condition to return a boolean value", fn ->
+        Sagax.new()
+        |> Sagax.compose_if(fn -> %{} end, fn saga ->
+          Sagax.put(saga, :hello, fn _, _, _ -> {:ok, :world} end)
+        end)
+        |> Sagax.execute()
+      end
+
+      assert_raise ArgumentError, "Expected condition to be a boolean or function", fn ->
+        Sagax.new()
+        |> Sagax.compose_if(%{}, fn saga ->
+          Sagax.put(saga, :hello, fn _, _, _ -> {:ok, :world} end)
+        end)
+        |> Sagax.execute()
+      end
     end
   end
 
