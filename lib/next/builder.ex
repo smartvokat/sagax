@@ -27,16 +27,16 @@ defmodule Sagax.Next.Builder do
       `builder` function receives the same arguments as any other effect
       (values, args, context).
       """
-      @spec use(Sagax.Next.Op.effect(), Keyword.t()) :: Sagax.Next.Op.effect()
-      def use(builder \\ nil, opts \\ [])
+      @spec compose(Sagax.Next.Op.effect(), Keyword.t()) :: Sagax.Next.Op.effect()
+      def compose(builder \\ nil, opts \\ [])
 
-      def use(nil, opts) do
+      def compose(nil, opts) do
         fn saga, args, context ->
           apply(__MODULE__, :new, [args, context, opts])
         end
       end
 
-      def use(builder, opts) do
+      def compose(builder, opts) do
         fn saga, args, context ->
           args =
             cond do

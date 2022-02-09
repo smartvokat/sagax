@@ -74,9 +74,9 @@ defmodule Sagax.Next.BuilderTest do
     end
   end
 
-  describe "use/3" do
+  describe "compose/3" do
     test "supports an empty builder" do
-      defmodule Use1Saga do
+      defmodule Compose1Saga do
         use Sagax.Builder
 
         def new(args, context, opts) do
@@ -88,12 +88,12 @@ defmodule Sagax.Next.BuilderTest do
 
       assert %Sagax{value: %{"ab" => %{"a" => "a", "b" => "b"}}} =
                Sagax.new()
-               |> Sagax.put("ab", Use1Saga.use())
+               |> Sagax.put("ab", Compose1Saga.compose())
                |> Sagax.execute()
     end
 
     test "supports args and opts modification" do
-      defmodule Use2Saga do
+      defmodule Compose2Saga do
         use Sagax.Builder
 
         def new(args, _context, opts) do
@@ -103,7 +103,7 @@ defmodule Sagax.Next.BuilderTest do
       end
 
       Sagax.new(args: %{greeting: "world"})
-      |> Sagax.run(Use2Saga.use(fn _, args -> %{hello: args.greeting} end, foo: :bar))
+      |> Sagax.run(Compose2Saga.compose(fn _, args -> %{hello: args.greeting} end, foo: :bar))
       |> Sagax.execute()
     end
   end
