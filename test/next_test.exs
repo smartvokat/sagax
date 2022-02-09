@@ -9,6 +9,8 @@ defmodule Sagax.NextTest do
 
   import Sagax.Test.Assertions
 
+  doctest Sagax
+
   describe "new()" do
     test "initializes without args" do
       assert saga = Sagax.new()
@@ -22,6 +24,41 @@ defmodule Sagax.NextTest do
       assert length(saga.ops) == 1
       assert Op.op(Enum.at(saga.ops, 0), :type) == :put
       assert Op.op(Enum.at(saga.ops, 0), :opts) == [key: :hello]
+    end
+  end
+
+  describe "put_if/4" do
+    test "handles boolean conditions correctly" do
+      assert %Sagax{value: %{hello: :world}} =
+               Sagax.new()
+               |> Sagax.put_if(true, :hello, fn -> {:ok, :world} end)
+               |> Sagax.execute()
+
+      assert %Sagax{value: %{}} =
+               Sagax.new()
+               |> Sagax.put_if(false, :hello, fn -> {:ok, :world} end)
+               |> Sagax.execute()
+    end
+
+    test "handles functional conditions correctly" do
+      assert %Sagax{value: %{hello: :world}} =
+               Sagax.new()
+               |> Sagax.put_if(fn -> true end, :hello, fn -> {:ok, :world} end)
+               |> Sagax.execute()
+    end
+
+    test "raises when condition is not valid" do
+      assert_raise ArgumentError, "Expected condition to return a boolean value", fn ->
+        Sagax.new()
+        |> Sagax.put_if(fn -> %{} end, :hello, fn -> {:ok, :world} end)
+        |> Sagax.execute()
+      end
+
+      assert_raise ArgumentError, "Expected condition to be a boolean or function", fn ->
+        Sagax.new()
+        |> Sagax.put_if(%{}, :hello, fn -> {:ok, :world} end)
+        |> Sagax.execute()
+      end
     end
   end
 

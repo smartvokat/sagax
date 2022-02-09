@@ -68,12 +68,35 @@ defmodule Sagax.Next do
   end
 
   @doc """
+  Same as `put/4` but only if `condition` evaluates to `true`.
+
+  ## Examples
+
+    iex> args = %{foo: :bar}
+    iex> Sagax.new()
+    ...> |> Sagax.put_if(Map.has_key?(args, :foo), :baz, fn -> {:ok, :xyz} end)
+    ...> |> Sagax.execute()
+
+  """
+  @spec put_if(
+          Sagax.Next.t(),
+          boolean() | (() -> boolean()),
+          atom(),
+          Sagax.Next.Op.effect(),
+          Sagax.Next.Op.compensation()
+        ) :: Sagax.Next.t()
+  def put_if(_saga, _condition, _key, _effect, comp \\ :noop)
+
+  def put_if(%Sagax{} = saga, condition, key, effect, comp),
+    do: maybe_compose(condition, :put, [saga, key, effect, comp])
+
+  @doc """
   Adds an effect to run as part of the saga without storing its result.
   """
-  @spec run(Sagax.t(), Sagax.Op.effect(), Sagax.Op.compensation()) :: Sagax.t()
+  @spec run(Sagax.Next.t(), Sagax.Next.Op.effect(), Sagax.Next.Op.compensation()) ::
+          Sagax.Next.t()
   def run(%Sagax{} = saga, effect, comp \\ :noop) do
     op = Op.new_run_op(saga.id, effect, comp)
-
     %{saga | ops: [op | saga.ops]}
   end
 
@@ -87,5 +110,31 @@ defmodule Sagax.Next do
       )
 
     %{saga | opts: opts}
+  end
+
+  defp maybe_compose(condition, func, args) do
+    should_compose =
+      cond do
+        is_boolean(condition) ->
+          condition
+
+        is_function(condition) ->
+          result = condition.()
+
+          if is_boolean(result) do
+            result
+          else
+            raise ArgumentError, "Expected condition to return a boolean value"
+          end
+
+        true ->
+          raise ArgumentError, "Expected condition to be a boolean or function"
+      end
+
+    if should_compose do
+      apply(__MODULE__, func, args)
+    else
+      List.first(args)
+    end
   end
 end
