@@ -42,7 +42,7 @@ defmodule Sagax.Next.Op do
   @doc """
   Creates a new put operation.
   """
-  @spec new_put_op(binary(), atom(), effect(), compensation()) :: Op.t()
+  @spec new_put_op(binary(), atom(), effect(), compensation()) :: Saga.Next.Op.t()
   def new_put_op(saga_id, key, effect, comp \\ :noop),
     do:
       op(
@@ -57,7 +57,7 @@ defmodule Sagax.Next.Op do
   @doc """
   Adds an effect to run as part of the saga without storing its result.
   """
-  @spec new_run_op(binary(), effect(), compensation()) :: Op.t()
+  @spec new_run_op(binary(), effect(), compensation()) :: Saga.Next.Op.t()
   def new_run_op(saga_id, effect, comp \\ :noop),
     do: op(id: Utils.new_id(), type: :run, effect: effect, comp: comp, saga_id: saga_id)
 end

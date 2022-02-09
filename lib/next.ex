@@ -36,7 +36,7 @@ defmodule Sagax.Next do
   @doc """
   Creates a new saga.
   """
-  @spec new(keyword()) :: Sagax.t()
+  @spec new(keyword()) :: Sagax.Next.t()
   def new(fields \\ []) do
     struct!(
       Sagax,
@@ -47,13 +47,14 @@ defmodule Sagax.Next do
   @doc """
   Calls the executer to execute the given saga.
   """
-  @spec execute(Sagax.t()) :: Sagax.t()
+  @spec execute(Sagax.Next.t()) :: Sagax.Next.t()
   def execute(%Sagax{} = saga), do: Sagax.Executer.execute(saga)
 
   @doc """
   Puts the result of `effect` under `key` in the result of the saga.
   """
-  @spec put(Sagax.t(), atom(), Sagax.Op.effect(), Sagax.Op.compensation()) :: Sagax.t()
+  @spec put(Sagax.Next.t(), atom(), Sagax.Next.Op.effect(), Sagax.Next.Op.compensation()) ::
+          Sagax.Next.t()
   def put(_saga, _key, _effect, comp \\ :noop)
 
   def put(%Sagax{} = saga, key, %Sagax{} = nested_saga, comp) do
