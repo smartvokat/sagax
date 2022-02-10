@@ -100,6 +100,28 @@ defmodule Sagax.Next do
     %{saga | ops: [op | saga.ops]}
   end
 
+  @doc """
+  Same as `run/3` but only if `condition` evaluates to `true`.
+
+  ## Examples
+
+    iex> args = %{foo: :bar}
+    iex> Sagax.new()
+    ...> |> Sagax.run_if(Map.has_key?(args, :foo), fn -> :ok end)
+    ...> |> Sagax.execute()
+
+  """
+  @spec run_if(
+          Sagax.Next.t(),
+          boolean() | (() -> boolean()),
+          Sagax.Next.Op.effect(),
+          Sagax.Next.Op.compensation()
+        ) :: Sagax.Next.t()
+  def run_if(_saga, _condition, _effect, comp \\ :noop)
+
+  def run_if(%Sagax{} = saga, condition, effect, comp),
+    do: maybe_compose(condition, :run, [saga, effect, comp])
+
   def transaction(%Sagax{} = saga, repo, transaction_opts \\ []) do
     opts =
       Keyword.merge(
