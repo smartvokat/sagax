@@ -45,6 +45,11 @@ defmodule Sagax.NextTest do
                Sagax.new()
                |> Sagax.put_if(fn -> true end, :hello, fn -> {:ok, :world} end)
                |> Sagax.execute()
+
+      assert %Sagax{value: %{}} =
+               Sagax.new()
+               |> Sagax.put_if(fn -> false end, :hello, fn -> {:ok, :world} end)
+               |> Sagax.execute()
     end
 
     test "raises when condition is not valid" do
@@ -62,7 +67,7 @@ defmodule Sagax.NextTest do
     end
   end
 
-  describe "run()" do
+  describe "run/3" do
     test "adds the op correctly" do
       effect = fn _, _ -> nil end
       comp = fn _, _, _ -> nil end
@@ -72,6 +77,51 @@ defmodule Sagax.NextTest do
       assert Op.op(Enum.at(saga.ops, 0), :type) == :run
       assert Op.op(Enum.at(saga.ops, 0), :effect) == effect
       assert Op.op(Enum.at(saga.ops, 0), :comp) == comp
+    end
+  end
+
+  describe "run_if/4" do
+    setup do
+      {:ok, log} = Log.start_link([])
+      %{log: log}
+    end
+
+    test "handles boolean conditions correctly", %{log: l} do
+      Sagax.new()
+      |> Sagax.run_if(true, fn -> Log.add(l, "a", :ok) end)
+      |> Sagax.execute()
+
+      Sagax.new()
+      |> Sagax.run_if(false, fn -> Log.add(l, "b", :ok) end)
+      |> Sagax.execute()
+
+      assert_log l, ["a"]
+    end
+
+    test "handles functional conditions correctly", %{log: l} do
+      Sagax.new()
+      |> Sagax.run_if(fn -> true end, fn -> Log.add(l, "a", :ok) end)
+      |> Sagax.execute()
+
+      Sagax.new()
+      |> Sagax.run_if(fn -> false end, fn -> Log.add(l, "b", :ok) end)
+      |> Sagax.execute()
+
+      assert_log l, ["a"]
+    end
+
+    test "raises when condition is not valid" do
+      assert_raise ArgumentError, "Expected condition to return a boolean value", fn ->
+        Sagax.new()
+        |> Sagax.run_if(fn -> %{} end, fn -> {:ok, :world} end)
+        |> Sagax.execute()
+      end
+
+      assert_raise ArgumentError, "Expected condition to be a boolean or function", fn ->
+        Sagax.new()
+        |> Sagax.run_if(%{}, fn -> {:ok, :world} end)
+        |> Sagax.execute()
+      end
     end
   end
 
