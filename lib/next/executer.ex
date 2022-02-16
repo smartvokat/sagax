@@ -13,14 +13,12 @@ defmodule Sagax.Next.Executer do
       |> State.new()
       |> execute_state(saga.opts)
 
-    values = extract_values(state.values)
-
     context =
       Enum.reduce(state.sagas, %{}, fn {_, saga}, acc ->
         Map.merge(acc, saga.context || %{})
       end)
 
-    %{saga | value: values, errors: state.errors, state: state.execution, context: context}
+    %{saga | value: state.values, errors: state.errors, state: state.execution, context: context}
   end
 
   defp do_execute(%State{next: []} = state), do: state
@@ -28,7 +26,19 @@ defmodule Sagax.Next.Executer do
   defp do_execute(%State{next: [operation | next]} = state) do
     saga_id = op(operation, :saga_id)
     saga = Map.get(state.sagas, saga_id)
-    value = Map.get(state.values, saga_id)
+
+    path = State.build_key_path(state, saga, [])
+
+    value =
+      cond do
+        state.values == %{} ->
+          nil
+        path != []  ->
+          get_in(state.values, path)
+        true ->
+          state.values
+        end
+
     effect = op(operation, :effect)
 
     result =
@@ -144,15 +154,5 @@ defmodule Sagax.Next.Executer do
       {:ok, %State{} = state} ->
         state
     end
-  end
-
-  defp extract_values(values) do
-    Enum.reduce(values, %{}, fn {_saga_id, saga_values}, acc ->
-      if saga_values do
-        Map.merge(acc, saga_values)
-      else
-        acc
-      end
-    end)
   end
 end
