@@ -33,11 +33,13 @@ defmodule Sagax.Next.Executer do
       cond do
         state.values == %{} ->
           nil
-        path != []  ->
+
+        path != [] ->
           get_in(state.values, path)
+
         true ->
           state.values
-        end
+      end
 
     effect = op(operation, :effect)
 

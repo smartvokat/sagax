@@ -140,7 +140,13 @@ defmodule Sagax.Next.ExecuterTest do
       nested_saga_1 =
         Sagax.new()
         |> Sagax.put("c", nested_saga_2)
-        |> Sagax.put("c1", assert_value_effect(%{"c" => %{"d" => %{"e" => %{"f" => "f", "g" => "g"}}}}, {:ok, "c1"}))
+        |> Sagax.put(
+          "c1",
+          assert_value_effect(
+            %{"c" => %{"d" => %{"e" => %{"f" => "f", "g" => "g"}}}},
+            {:ok, "c1"}
+          )
+        )
 
       saga =
         Sagax.new()
@@ -148,7 +154,11 @@ defmodule Sagax.Next.ExecuterTest do
         |> Sagax.put("b", nested_saga_1)
 
       assert %Sagax{state: :ok, value: value} = Executer.execute(saga)
-      assert value == %{"a" => "a", "b" => %{"c" => %{"d" => %{"e" => %{"f" => "f", "g" => "g"}}}, "c1" => "c1"}}
+
+      assert value == %{
+               "a" => "a",
+               "b" => %{"c" => %{"d" => %{"e" => %{"f" => "f", "g" => "g"}}}, "c1" => "c1"}
+             }
     end
 
     test "halts execution when a step returns :halt", %{log: log} do

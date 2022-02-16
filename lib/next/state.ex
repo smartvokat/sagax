@@ -31,12 +31,12 @@ defmodule Sagax.Next.State do
     key = Keyword.get(op(operation, :opts), :key)
     parent_saga_id = op(operation, :saga_id)
 
-    saga =
-      %{
-        saga
-        | parent_saga_id: parent_saga_id,
-          nested_key: key
-      }
+    saga = %{
+      saga
+      | parent_saga_id: parent_saga_id,
+        nested_key: key
+    }
+
     sagas = Map.put(state.sagas, saga.id, saga)
 
     # Put future values of nested saga(s) into corresponding keys of the parent saga(s).
@@ -197,7 +197,12 @@ defmodule Sagax.Next.State do
     %RuntimeError{message: message}
   end
 
-  def build_key_path(state, %{parent_saga_id: parent_saga_id, nested_key: nested_key} = _saga, path) when not is_nil(nested_key) do
+  def build_key_path(
+        state,
+        %{parent_saga_id: parent_saga_id, nested_key: nested_key} = _saga,
+        path
+      )
+      when not is_nil(nested_key) do
     path = [nested_key | path]
     parent_saga = state.sagas[parent_saga_id]
 
@@ -209,7 +214,7 @@ defmodule Sagax.Next.State do
   def update_values(%State{} = state, saga, key, result) do
     if saga.parent_saga_id do
       path = build_key_path(state, saga, [])
-      update_in(state.values, path, &(Map.merge(&1 || %{}, %{key => result})))
+      update_in(state.values, path, &Map.merge(&1 || %{}, %{key => result}))
     else
       Map.put(state.values, key, result)
     end
