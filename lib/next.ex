@@ -19,7 +19,9 @@ defmodule Sagax.Next do
           state: :new | :ok | :error,
           tx: transaction(),
           value: map() | list() | nil,
-          opts: Keyword.t() | []
+          opts: Keyword.t() | [],
+          parent_saga_id: integer(),
+          nested_key: any()
         }
 
   defstruct args: nil,
@@ -31,7 +33,9 @@ defmodule Sagax.Next do
             state: :new,
             tx: nil,
             value: nil,
-            opts: []
+            opts: [],
+            parent_saga_id: nil,
+            nested_key: nil
 
   @doc """
   Creates a new saga.

@@ -105,12 +105,12 @@ defmodule Sagax.Next.ExecuterTest do
     test "execute nested sagas", %{log: l} do
       nested_saga_1 =
         Sagax.new()
-        |> Sagax.put("c1", assert_value_effect(%{"b" => nil}, {:ok, "c1"}))
-        |> Sagax.put("c2", assert_value_effect(%{"b" => %{"c1" => "c1"}}, {:ok, "c2"}))
+        |> Sagax.put("c1", assert_value_effect(nil, {:ok, "c1"}))
+        |> Sagax.put("c2", assert_value_effect(%{"c1" => "c1"}, {:ok, "c2"}))
 
       nested_saga_2 =
         Sagax.new()
-        |> Sagax.put("d", assert_value_effect(%{"f" => nil}, {:ok, "d"}))
+        |> Sagax.put("d", assert_value_effect(nil, {:ok, "d"}))
 
       saga =
         Sagax.new()
@@ -121,6 +121,44 @@ defmodule Sagax.Next.ExecuterTest do
       assert %Sagax{state: :ok, value: value} = Executer.execute(saga)
       assert_log l, ["a", "b"]
       assert value == %{"a" => "a", "b" => %{"c1" => "c1", "c2" => "c2"}, "f" => %{"d" => "d"}}
+    end
+
+    test "execute deeply execute nested sagas" do
+      nested_saga_4 =
+        Sagax.new()
+        |> Sagax.put("f", assert_value_effect(nil, {:ok, "f"}))
+        |> Sagax.put("g", assert_value_effect(%{"f" => "f"}, {:ok, "g"}))
+
+      nested_saga_3 =
+        Sagax.new()
+        |> Sagax.put("e", nested_saga_4)
+
+      nested_saga_2 =
+        Sagax.new()
+        |> Sagax.put("d", nested_saga_3)
+
+      nested_saga_1 =
+        Sagax.new()
+        |> Sagax.put("c", nested_saga_2)
+        |> Sagax.put(
+          "c1",
+          assert_value_effect(
+            %{"c" => %{"d" => %{"e" => %{"f" => "f", "g" => "g"}}}},
+            {:ok, "c1"}
+          )
+        )
+
+      saga =
+        Sagax.new()
+        |> Sagax.put("a", assert_value_effect(nil, {:ok, "a"}))
+        |> Sagax.put("b", nested_saga_1)
+
+      assert %Sagax{state: :ok, value: value} = Executer.execute(saga)
+
+      assert value == %{
+               "a" => "a",
+               "b" => %{"c" => %{"d" => %{"e" => %{"f" => "f", "g" => "g"}}}, "c1" => "c1"}
+             }
     end
 
     test "halts execution when a step returns :halt", %{log: log} do
